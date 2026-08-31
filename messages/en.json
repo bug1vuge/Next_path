@@ -1,5 +1,7 @@
 {
-  "language": {"label": "Language"},
+  "language": {
+    "label": "Language"
+  },
   "navigation": {
     "label": "Main navigation",
     "test": "Test",
@@ -39,6 +41,7 @@
     "search": "Search",
     "all": "All",
     "notSpecified": "Not specified",
+    "address": "Address",
     "showMore": "Show more",
     "errorTitle": "Could not load the data",
     "errorText": "Check the database connection and try again.",
@@ -162,6 +165,7 @@
     "sortName": "By name",
     "sortTuitionAsc": "Tuition: low to high",
     "sortTuitionDesc": "Tuition: high to low",
+    "sortTuitionHint": "Sorting by tuition groups universities by the source currency: amounts in different currencies are never converted.",
     "rating": "Ranking",
     "ratingHint": "Shown exactly as the source records it.",
     "tuition": "Tuition per year",

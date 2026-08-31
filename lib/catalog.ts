@@ -156,10 +156,20 @@ export async function getUniversities(filters: UniversityFilters) {
 
   const orderBy: Prisma.UniversityOrderByWithRelationInput[] = (() => {
     switch (filters.sort) {
+      // Amounts in different currencies are not comparable and are never
+      // converted, so tuition ordering groups by currency first.
       case "tuition-asc":
-        return [{tuitionMin: {sort: "asc", nulls: "last"}}, {name_ru: "asc"}];
+        return [
+          {tuitionCurrency: {sort: "asc", nulls: "last"}},
+          {tuitionMin: {sort: "asc", nulls: "last"}},
+          {name_ru: "asc"}
+        ];
       case "tuition-desc":
-        return [{tuitionMin: {sort: "desc", nulls: "last"}}, {name_ru: "asc"}];
+        return [
+          {tuitionCurrency: {sort: "asc", nulls: "last"}},
+          {tuitionMin: {sort: "desc", nulls: "last"}},
+          {name_ru: "asc"}
+        ];
       default:
         return [{name_ru: "asc"}];
     }
@@ -194,6 +204,29 @@ export async function getUniversityFacets() {
   };
 }
 
+/**
+ * Filter options come from the whole table, not from the current result set, so
+ * the choices on offer do not change as filters are applied.
+ */
+export async function getProfessionFacets() {
+  const [demands, salaries] = await Promise.all([
+    db.profession.groupBy({by: ["demand", "demandLabel"], _count: {_all: true}, orderBy: {demand: "asc"}}),
+    db.profession.groupBy({by: ["salaryRank", "salaryLabel"], _count: {_all: true}, orderBy: {salaryRank: "desc"}})
+  ]);
+  return {
+    demands: demands
+      .filter((entry) => entry.demandLabel !== null)
+      .map((entry) => ({value: entry.demand, label: entry.demandLabel as string, count: entry._count._all})),
+    salaryLevels: salaries
+      .filter((entry) => entry.salaryRank !== null && entry.salaryLabel !== null)
+      .map((entry) => ({
+        value: String(entry.salaryRank),
+        label: entry.salaryLabel as string,
+        count: entry._count._all
+      }))
+  };
+}
+
 /** True while no profession in the database carries a numeric salary. */
 export async function hasNumericSalaries(): Promise<boolean> {
   return (await db.profession.count({where: {salaryAverage: {not: null}}})) > 0;
@@ -225,6 +258,86 @@ export async function getFavourites(slugs: {professions: string[]; universities:
       : Promise.resolve([])
   ]);
   return {professions, universities, directions};
+}
+
+/**
+ * Compact index of everything that can be saved. Favourites live in the
+ * browser, so the page receives the whole (small) index and matches the saved
+ * slugs against it on the client.
+ */
+export async function getFavouriteIndex() {
+  const [directions, professions, universities] = await Promise.all([
+    db.direction.findMany({
+      orderBy: {sortOrder: "asc"},
+      select: {slug: true, name_ru: true, name_kk: true, name_en: true, description_ru: true, description_kk: true, description_en: true, icon: true, skills: true, _count: {select: {professions: true}}}
+    }),
+    db.profession.findMany({
+      orderBy: {name_ru: "asc"},
+      select: {
+        slug: true,
+        name_ru: true,
+        name_kk: true,
+        name_en: true,
+        shortDescription_ru: true,
+        shortDescription_kk: true,
+        shortDescription_en: true,
+        salaryLabel: true,
+        demandLabel: true,
+        skills: true,
+        direction: {select: {slug: true, name_ru: true, name_kk: true, name_en: true}}
+      }
+    }),
+    db.university.findMany({
+      orderBy: {name_ru: "asc"},
+      select: {
+        slug: true,
+        name_ru: true,
+        name_kk: true,
+        name_en: true,
+        country: true,
+        city: true,
+        ratingLabel: true,
+        tuitionMin: true,
+        tuitionMax: true,
+        tuitionCurrency: true,
+        _count: {select: {programs: true}}
+      }
+    })
+  ]);
+  return {directions, professions, universities};
+}
+
+/** Universities with their admission requirements, for the admission plan. */
+export async function getAdmissionIndex() {
+  return db.university.findMany({
+    orderBy: {name_ru: "asc"},
+    select: {
+      slug: true,
+      name_ru: true,
+      name_kk: true,
+      name_en: true,
+      country: true,
+      city: true,
+      admission: {select: {exams: true, ielts: true, sat: true, grants: true, deadline: true}}
+    }
+  });
+}
+
+export async function getCareerPath(slug: string) {
+  const profession = await db.profession.findUnique({
+    where: {slug},
+    include: {direction: true}
+  });
+  if (!profession) return null;
+  const universities = await getUniversitiesForProfession(profession.id, profession.directionId);
+  return {profession, universities};
+}
+
+export async function getProfessionOptions() {
+  return db.profession.findMany({
+    orderBy: {name_ru: "asc"},
+    select: {slug: true, name_ru: true, name_kk: true, name_en: true}
+  });
 }
 
 export async function getGrants() {

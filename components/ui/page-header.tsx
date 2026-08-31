@@ -45,7 +45,14 @@ export function Section({
   );
 }
 
-export function DefinitionList({items}: {items: {term: string; value: ReactNode}[]}) {
+export type Definition = {term: string; value: ReactNode};
+
+/** Drops entries the source did not provide, so absent values render nothing. */
+export function definitions(items: (Definition | null | false | undefined)[]): Definition[] {
+  return items.filter((item): item is Definition => Boolean(item));
+}
+
+export function DefinitionList({items}: {items: Definition[]}) {
   if (items.length === 0) return null;
   return (
     <dl className="grid gap-3">
