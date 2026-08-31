@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "db:seed": "tsx prisma/seed.ts",
     "db:import": "tsx scripts/import-csv.ts",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.1",
+    "@playwright/test": "1.51.1",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.10.1",
     "@types/react": "19.0.2",

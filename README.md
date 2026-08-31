@@ -45,6 +45,8 @@ corepack pnpm@9.15.4 dev                 # http://localhost:3000/ru
 | `pnpm build` / `pnpm start` | Production build and server. |
 | `pnpm typecheck` | `tsc --noEmit`. |
 | `pnpm lint` | ESLint. |
+| `pnpm test` | Vitest unit tests (scoring, stored user state, translation parity). |
+| `pnpm test:e2e` | Playwright journey test — builds the app and drives a real browser. |
 | `pnpm db:import:sheet [file.xlsx]` | Imports the Google Sheet (or a local `.xlsx` export) — see below. |
 | `pnpm db:import <entity>=<file.csv>` | Imports one CSV per table. |
 | `pnpm db:seed` | Placeholder fallback data; skips when the database already has content. |
@@ -126,6 +128,54 @@ Headers are Prisma field names. Empty cells become `null`. List columns use a JS
 ## Placeholder seed
 
 `prisma/seed.ts` is marked `SEED_DATA_PLACEHOLDER` and exists only for environments that cannot reach the sheet. It **skips when the database already holds directions**, so it can never overwrite imported content; pass `--force` to reseed a scratch database on purpose. It contains no real ratings, tuition figures, deadlines, contacts or reviews.
+
+## Routes
+
+```
+/[locale]                      home
+/[locale]/test                 questionnaire, one question per screen
+/[locale]/test/results         ranked directions, top three and the rest
+/[locale]/directions           catalogue        /[locale]/directions/[slug]
+/[locale]/professions          search + filters /[locale]/professions/[slug]
+/[locale]/universities         search + filters /[locale]/universities/[slug]
+/[locale]/favorites            saved items, tabbed
+/[locale]/career-path          the route built around one profession
+/[locale]/admission-plan       checklist plus requirements for saved universities
+/[locale]/grants               grant information per university
+/[locale]/search               grouped results across every entity
+/[locale]/about                what the project is and where the data comes from
+```
+
+Filters and sorting are URL search parameters translated into Prisma `where`
+and `orderBy` clauses, so a filtered list is shareable and survives a reload.
+Favourites, the answers in progress, the last test result and the admission-plan
+ticks are the only client-side state; they live in `localStorage` behind
+`lib/user-state.ts`.
+
+## Tests
+
+```bash
+corepack pnpm@9.15.4 test        # Vitest
+corepack pnpm@9.15.4 test:e2e    # Playwright (needs a populated database)
+```
+
+`tests/unit/scoring.test.ts` covers the scoring contract: answers concentrated in
+one direction, evenly spread answers, a direction that carries no weight
+anywhere, partial completion, deterministic tie-breaking and answers that
+reference unknown questions. `tests/unit/messages.test.ts` fails when any key,
+value or message placeholder is missing from one of the three locale files — the
+CI check for translation parity.
+
+`tests/e2e/journey.spec.ts` walks the entire journey in one run — home → test →
+every question answered → results with non-zero percentages → top direction →
+a profession (salary level and demand rendered) → a university → favourites →
+admission plan → career path — then switches to Kazakh and asserts the interface
+chrome contains no Russian or English, and that the Russian-only catalogue is
+labelled as such rather than passed off as a translation. A third test checks
+that no page overflows horizontally at 375px.
+
+The Playwright config builds the app and starts it on port 3100. Install the
+browser once with `corepack pnpm@9.15.4 exec playwright install chromium`.
 
 ## Database
 

@@ -9,3 +9,9 @@ test-results/
 *.tsbuildinfo
 next-dev.log
 *.log
+
+# Playwright
+.playwright/
+
+test-results/
+playwright-report/
