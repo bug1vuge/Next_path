@@ -4,7 +4,7 @@
 
 Build a Russian/Kazakh/English career-navigation MVP for learners aged 14–18. The product follows the core journey: test → directions → professions → universities/programs → admission plan → career path, while allowing free exploration. The technical contract in `codex-prompt-next-path.md` takes precedence where it is more specific than `BRIEF.md`.
 
-Fixed stack: Next.js 15 App Router, strict TypeScript, Tailwind CSS v4, Prisma/PostgreSQL, next-intl, lucide-react, Vitest, and Playwright. Client-only anonymous preferences and the last test result will be encapsulated in `lib/user-state.ts`.
+Fixed stack: Next.js 15 App Router, strict TypeScript, Tailwind CSS v4, Prisma/PostgreSQL, next-intl, lucide-react, Vitest, and Playwright. `tsx` is the sole supporting development dependency: it executes the required TypeScript Prisma seed and CSV-import scripts without adding application runtime code. Client-only anonymous preferences and the last test result will be encapsulated in `lib/user-state.ts`.
 
 ## Route list
 
@@ -119,3 +119,45 @@ Each phase is committed only after its relevant typecheck/tests pass. The final 
 3. Does the production PostgreSQL role permit enabling the `unaccent` extension? If not, search needs a normalised indexed column maintained on import/seed.
 4. The technical contract says no fabricated data but also requires placeholder seeds. The seed data will be explicitly marked and structured for replacement; it must not be represented as verified institutional/admission data.
 5. Do university website/contact fields in placeholder data need to be omitted unless they can be verified, or is clearly-labelled temporary seed metadata acceptable during development?
+
+---
+
+## Data reality check (phase 3, after the source sheet became available)
+
+The Google Sheet is now readable and is the source of truth. What it actually
+contains differs from the assumptions in the technical contract, so the
+following decisions were made and are reflected in the schema, the importer and
+`README.md`.
+
+- **Scope: Russian content only.** Interface chrome stays trilingual; catalogue
+  columns `*_kk` / `*_en` are written empty and read through `lib/content.ts`,
+  which falls back to Russian. An empty column means "not translated yet" and is
+  never a Russian string masquerading as a translation.
+- **Eight directions, not nine.** The sheet has no Agriculture direction. The
+  home page and catalogue count directions from the database instead of
+  hard-coding nine.
+- **No salary figures exist.** `Средняя зарплата` is a level ("Высокая"),
+  not a number. Added `salaryLabel` (verbatim) and `salaryRank` (for sorting);
+  `salaryAverage` stays null and no tenge figure is displayed or invented. The
+  numeric minimum-salary filter is implemented against `salaryAverage` but is
+  only offered while numeric salaries exist in the database.
+- **Ratings are not one scale.** World ranks, ranges and national "топ-N"
+  positions are mixed. Added `ratingLabel` (verbatim); numeric `rating` is set
+  only for a single plausible world-ranking position, and rating is not offered
+  as a sort key.
+- **Tuition carries a currency.** Added `tuitionCurrency` and `tuitionNote`
+  (raw cell). Amounts are parsed per currency and never converted.
+- **Admission belongs in its own table.** New `Admission` model, one row per
+  university, every field nullable so unknown exams/IELTS/SAT/grants/deadlines
+  stay absent instead of being fabricated.
+- **Programs come from `Направления`** — one per university × direction — and
+  attach to a specific profession only when an English specialty name appears
+  verbatim in the university's `осн. направления` cell.
+- **The test does not score directions.** Answers are tagged with twelve
+  archetype labels across three blocks. `lib/test-mapping.ts` holds the single
+  explicit archetype → direction weight table used by the importer; it is a
+  product decision, documented as such, and `Option.archetype` keeps the raw
+  label. Re-tune the table and re-import to change results.
+- **Idempotency.** `Program`, `Question` and `Option` gained a unique
+  `sourceKey`; every import upserts by a stable key and deletes rows that
+  disappeared from the sheet.

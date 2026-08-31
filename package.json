@@ -8,7 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:import": "tsx scripts/import-csv.ts",
+    "db:import:sheet": "tsx scripts/import-google-sheet.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.9.0",
@@ -28,6 +34,8 @@
     "eslint-config-next": "15.5.9",
     "prisma": "6.9.0",
     "tailwindcss": "4.1.17",
+    "tsx": "4.19.2",
+    "xlsx": "0.18.5",
     "typescript": "5.7.2"
   }
 }

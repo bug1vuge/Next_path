@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Demand {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum QuestionCategory {
+  INTERESTS
+  APTITUDES
+  ACTIVITY_TYPE
+}
+
+model Direction {
+  id             String       @id @default(cuid())
+  slug           String       @unique
+  sortOrder      Int          @default(0)
+  name_ru        String
+  name_kk        String
+  name_en        String
+  description_ru String       @db.Text
+  description_kk String       @db.Text
+  description_en String       @db.Text
+  whoItSuits_ru  String       @db.Text
+  whoItSuits_kk  String       @db.Text
+  whoItSuits_en  String       @db.Text
+  skills         String[]
+  schoolSubjects String[]
+  icon           String
+  professions    Profession[]
+  programs       Program[]
+}
+
+model Profession {
+  id                  String    @id @default(cuid())
+  slug                String    @unique
+  name_ru             String
+  name_kk             String
+  name_en             String
+  shortDescription_ru String    @db.Text
+  shortDescription_kk String    @db.Text
+  shortDescription_en String    @db.Text
+  whatTheyDo_ru       String    @db.Text
+  whatTheyDo_kk       String    @db.Text
+  whatTheyDo_en       String    @db.Text
+  salaryMin           Int?
+  salaryMax           Int?
+  salaryAverage       Int?
+  salaryLabel         String?
+  salaryRank          Int?
+  demand              Demand
+  demandLabel         String?
+  demandRank          Int?
+  specialties         String[]
+  pros_ru             String[]
+  pros_kk             String[]
+  pros_en             String[]
+  cons_ru             String[]
+  cons_kk             String[]
+  cons_en             String[]
+  skills              String[]
+  schoolSubjects      String[]
+  careerLadder        Json
+  directionId         String
+  direction           Direction @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  programs            Program[]
+
+  @@index([directionId])
+  @@index([salaryAverage])
+  @@index([demand])
+}
+
+model University {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  name_ru        String
+  name_kk        String
+  name_en        String
+  country        String
+  city           String
+  rating         Float?
+  ratingLabel    String?
+  tuitionMin     Int?
+  tuitionMax     Int?
+  tuitionCurrency String?
+  tuitionNote    String?
+  website        String?
+  email          String?
+  phone          String?
+  address        String?
+  description_ru String    @db.Text
+  description_kk String    @db.Text
+  description_en String    @db.Text
+  programs       Program[]
+  reviews        Review[]
+  admission      Admission?
+
+  @@index([country])
+  @@index([city])
+}
+
+/// Admission requirements exactly as published in the source spreadsheet.
+/// Every field is nullable: an unknown value stays absent and the UI hides it.
+model Admission {
+  id           String     @id @default(cuid())
+  universityId String     @unique
+  exams        String?    @db.Text
+  ielts        String?    @db.Text
+  sat          String?    @db.Text
+  grants       String?    @db.Text
+  deadline     String?    @db.Text
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+}
+
+model Program {
+  id              String      @id @default(cuid())
+  /// Stable key derived from the source row so re-imports update instead of duplicating.
+  sourceKey       String      @unique
+  universityId    String
+  directionId     String
+  professionId    String?
+  name_ru         String
+  name_kk         String
+  name_en         String
+  requirements_ru String      @db.Text
+  requirements_kk String      @db.Text
+  requirements_en String      @db.Text
+  tuitionCost     Int?
+  university      University  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  direction       Direction   @relation(fields: [directionId], references: [id], onDelete: Cascade)
+  profession      Profession? @relation(fields: [professionId], references: [id], onDelete: SetNull)
+  reviews         Review[]
+
+  @@index([universityId])
+  @@index([directionId])
+  @@index([professionId])
+}
+
+model Question {
+  id       String           @id @default(cuid())
+  order    Int              @unique
+  /// Stable key derived from the source row so re-imports update instead of duplicating.
+  sourceKey String          @unique
+  block    String
+  text_ru  String           @db.Text
+  text_kk  String           @db.Text
+  text_en  String           @db.Text
+  category QuestionCategory
+  options  Option[]
+}
+
+model Option {
+  id         String   @id @default(cuid())
+  /// Stable key derived from the source row so re-imports update instead of duplicating.
+  sourceKey  String   @unique
+  questionId String
+  /// Raw archetype label from the source sheet ("A - направление" etc.).
+  archetype  String
+  text_ru    String   @db.Text
+  text_kk    String   @db.Text
+  text_en    String   @db.Text
+  weights    Json
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+model Review {
+  id           String     @id @default(cuid())
+  universityId String
+  programId    String?
+  author       String
+  year         Int
+  text         String     @db.Text
+  rating       Int
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  program      Program?   @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  @@index([universityId])
+  @@index([programId])
+}
