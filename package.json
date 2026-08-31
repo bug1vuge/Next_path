@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:seed": "tsx prisma/seed.ts",
     "db:import": "tsx scripts/import-csv.ts",
     "db:import:sheet": "tsx scripts/import-google-sheet.ts"
@@ -25,17 +27,19 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "4.1.17",
     "@eslint/eslintrc": "3.3.1",
+    "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.10.1",
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
+    "@vitest/ui": "2.1.8",
     "eslint": "9.17.0",
     "eslint-config-next": "15.5.9",
     "prisma": "6.9.0",
     "tailwindcss": "4.1.17",
     "tsx": "4.19.2",
-    "xlsx": "0.18.5",
-    "typescript": "5.7.2"
+    "typescript": "5.7.2",
+    "vitest": "2.1.8",
+    "xlsx": "0.18.5"
   }
 }
