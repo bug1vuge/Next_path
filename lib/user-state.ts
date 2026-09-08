@@ -36,6 +36,7 @@ export type UserState = {
   result: TestResult | null;
   selectedProfession: string | null;
   admissionPlanDone: string[];
+  developmentPlanDone: string[];
 };
 
 const EMPTY: UserState = {
@@ -43,7 +44,8 @@ const EMPTY: UserState = {
   answers: [],
   result: null,
   selectedProfession: null,
-  admissionPlanDone: []
+  admissionPlanDone: [],
+  developmentPlanDone: []
 };
 
 const listeners = new Set<() => void>();
@@ -104,6 +106,11 @@ function parse(raw: string | null): UserState {
       selectedProfession: typeof value.selectedProfession === "string" ? value.selectedProfession : null,
       admissionPlanDone: Array.isArray(value.admissionPlanDone)
         ? value.admissionPlanDone.filter((step): step is string => typeof step === "string")
+        : [],
+      // Added after the first release: state written by an older version simply
+      // has no development plan yet and starts empty.
+      developmentPlanDone: Array.isArray(value.developmentPlanDone)
+        ? value.developmentPlanDone.filter((step): step is string => typeof step === "string")
         : []
     };
   } catch {
@@ -202,6 +209,15 @@ export function toggleAdmissionStep(step: string) {
     admissionPlanDone: current.admissionPlanDone.includes(step)
       ? current.admissionPlanDone.filter((value) => value !== step)
       : [...current.admissionPlanDone, step]
+  }));
+}
+
+export function toggleDevelopmentStep(step: string) {
+  updateState((current) => ({
+    ...current,
+    developmentPlanDone: current.developmentPlanDone.includes(step)
+      ? current.developmentPlanDone.filter((value) => value !== step)
+      : [...current.developmentPlanDone, step]
   }));
 }
 

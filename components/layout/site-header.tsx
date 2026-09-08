@@ -1,6 +1,7 @@
 "use client";
 
 import {Heart, Menu, Search, X} from "lucide-react";
+import Image from "next/image";
 import {useState} from "react";
 import {useTranslations} from "next-intl";
 import {Link} from "@/i18n/navigation";
@@ -23,8 +24,19 @@ export function SiteHeader() {
   return (
     <header className="border-b border-border bg-canvas/90 backdrop-blur">
       <div className="container-page flex min-h-18 items-center justify-between gap-4 py-2">
-        <Link aria-label="Next Path" className="shrink-0 text-xl font-extrabold tracking-tight text-ink" href="/">
-          Next <span className="text-brand">Path</span>
+        <Link aria-label="Next Path" className="flex shrink-0 items-center gap-2.5" href="/">
+          <Image
+            alt=""
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            height={40}
+            priority
+            src="/logo-mark.png"
+            unoptimized
+            width={40}
+          />
+          <span className="text-xl font-extrabold tracking-tight text-ink">
+            Next <span className="text-brand">Path</span>
+          </span>
         </Link>
 
         <nav aria-label={t("label")} className="hidden items-center gap-5 xl:flex">

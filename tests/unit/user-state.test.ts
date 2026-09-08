@@ -7,6 +7,7 @@ import {
   saveResult,
   selectProfession,
   toggleAdmissionStep,
+  toggleDevelopmentStep,
   updateState
 } from "@/lib/user-state";
 
@@ -55,7 +56,8 @@ describe("user-state", () => {
       answers: [],
       result: null,
       selectedProfession: null,
-      admissionPlanDone: []
+      admissionPlanDone: [],
+      developmentPlanDone: []
     });
   });
 
@@ -97,6 +99,26 @@ describe("user-state", () => {
 
     toggleAdmissionStep("documents");
     expect(readState().admissionPlanDone).toEqual([]);
+  });
+
+  it("toggles development-plan steps independently of the admission plan", () => {
+    toggleAdmissionStep("documents");
+    toggleDevelopmentStep("portfolio");
+    expect(readState().developmentPlanDone).toEqual(["portfolio"]);
+    expect(readState().admissionPlanDone).toEqual(["documents"]);
+
+    toggleDevelopmentStep("portfolio");
+    expect(readState().developmentPlanDone).toEqual([]);
+    expect(readState().admissionPlanDone).toEqual(["documents"]);
+  });
+
+  it("reads state written before the development plan existed", () => {
+    const storage = new MemoryStorage();
+    storage.setItem("next-path:v1", JSON.stringify({favourites: [], admissionPlanDone: ["test"]}));
+    installStorage(storage);
+
+    expect(readState().developmentPlanDone).toEqual([]);
+    expect(readState().admissionPlanDone).toEqual(["test"]);
   });
 
   it("remembers the selected profession", () => {

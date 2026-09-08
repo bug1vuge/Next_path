@@ -333,6 +333,58 @@ export async function getCareerPath(slug: string) {
   return {profession, universities};
 }
 
+/**
+ * Everything the career map needs that does not depend on the chosen
+ * profession. Favourites and test answers live in the browser, so the page
+ * receives one compact index and composes the map against it on the client —
+ * the same approach the favourites page uses.
+ */
+export async function getCareerMapIndex() {
+  const [directions, professions, questions] = await Promise.all([
+    db.direction.findMany({
+      orderBy: {sortOrder: "asc"},
+      select: {
+        slug: true,
+        name_ru: true, name_kk: true, name_en: true,
+        description_ru: true, description_kk: true, description_en: true,
+        whoItSuits_ru: true, whoItSuits_kk: true, whoItSuits_en: true,
+        skills: true,
+        schoolSubjects: true,
+        icon: true,
+        _count: {select: {professions: true}}
+      }
+    }),
+    db.profession.findMany({
+      orderBy: {name_ru: "asc"},
+      select: {
+        slug: true,
+        name_ru: true, name_kk: true, name_en: true,
+        shortDescription_ru: true, shortDescription_kk: true, shortDescription_en: true,
+        salaryLabel: true,
+        demandLabel: true,
+        skills: true,
+        schoolSubjects: true,
+        direction: {select: {slug: true}}
+      }
+    }),
+    // The profile is read from the visitor's own answers, so the map needs the
+    // source archetype and block behind every option they could have picked.
+    db.question.findMany({
+      orderBy: {order: "asc"},
+      select: {block: true, options: {select: {id: true, archetype: true}}}
+    })
+  ]);
+
+  const blocks: string[] = [];
+  const optionMeta: Record<string, {archetype: string; block: string}> = {};
+  for (const question of questions) {
+    if (!blocks.includes(question.block)) blocks.push(question.block);
+    for (const option of question.options) optionMeta[option.id] = {archetype: option.archetype, block: question.block};
+  }
+
+  return {directions, professions, blocks, optionMeta};
+}
+
 export async function getProfessionOptions() {
   return db.profession.findMany({
     orderBy: {name_ru: "asc"},

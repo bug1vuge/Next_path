@@ -92,7 +92,29 @@ test("a visitor can walk the whole journey", async ({page}) => {
   await page.getByRole("link", {name: ru.common.more}).first().click();
   await page.getByRole("button", {name: ru.careerPath.build}).click();
   await page.waitForURL(/\/ru\/career-path\?profession=/, {timeout: 60_000});
-  await expect(page.getByRole("heading", {name: ru.careerPath.stepUniversities})).toBeVisible();
+  await expect(page.getByRole("heading", {name: ru.careerPath.universitiesTitle})).toBeVisible();
+
+  // The career map opens on its progress slider and every station is rendered.
+  await expect(page.getByRole("progressbar", {name: ru.careerPath.progressTitle})).toBeVisible();
+  for (const section of [
+    ru.careerPath.profileTitle,
+    ru.careerPath.directionsTitle,
+    ru.careerPath.professionsTitle,
+    ru.careerPath.choiceTitle,
+    ru.careerPath.admissionTitle,
+    ru.careerPath.developmentTitle,
+    ru.careerPath.pathTitle,
+    ru.careerPath.alternativesTitle
+  ]) {
+    await expect(page.getByRole("heading", {name: section})).toBeVisible();
+  }
+
+  // The profile is built from the answers given above, and ticking a
+  // development step moves the progress slider.
+  await expect(page.getByText(ru.careerPath.blockCaption.strengths)).toBeVisible();
+  const before = await page.getByRole("progressbar").getAttribute("aria-valuenow");
+  await page.getByRole("button", {name: ru.careerPath.development.portfolio}).click();
+  await expect(page.getByRole("progressbar")).not.toHaveAttribute("aria-valuenow", before ?? "");
 });
 
 test("the interface switches fully to Kazakh", async ({page}) => {
@@ -137,7 +159,10 @@ test("the mobile layout never overflows sideways", async ({page}) => {
     "/ru/universities",
     "/ru/favorites",
     "/ru/admission-plan",
-    "/ru/grants"
+    "/ru/career-path",
+    "/ru/grants",
+    "/ru/search",
+    "/ru/about"
   ]) {
     await page.goto(path);
     const overflow = await page.evaluate(

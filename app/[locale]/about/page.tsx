@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import {buttonClass} from "@/components/ui/button";
 import {PageHeader} from "@/components/ui/page-header";
@@ -10,6 +11,7 @@ export default async function AboutPage({params}: {params: Promise<{locale: Loca
   setRequestLocale(locale);
   const t = await getTranslations("about");
   const tHome = await getTranslations("home");
+  const tFooter = await getTranslations("footer");
 
   const counts = await getCatalogCounts();
 
@@ -31,6 +33,18 @@ export default async function AboutPage({params}: {params: Promise<{locale: Loca
         title={t("title")}
         description={t("subtitle")}
       />
+
+      <div className="mb-10 flex flex-col items-center gap-6 rounded-3xl border border-border bg-surface p-6 text-center sm:flex-row sm:p-8 sm:text-left">
+        <Image
+          alt="Next Path"
+          className="h-28 w-28 shrink-0 sm:h-32 sm:w-32"
+          height={128}
+          src="/logo.png"
+          unoptimized
+          width={128}
+        />
+        <p className="max-w-xl text-sm leading-6 text-muted">{tFooter("description")}</p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <p className="rounded-3xl bg-lilac p-6 text-lg font-extrabold">

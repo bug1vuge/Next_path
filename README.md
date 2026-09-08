@@ -139,7 +139,7 @@ Headers are Prisma field names. Empty cells become `null`. List columns use a JS
 /[locale]/professions          search + filters /[locale]/professions/[slug]
 /[locale]/universities         search + filters /[locale]/universities/[slug]
 /[locale]/favorites            saved items, tabbed
-/[locale]/career-path          the route built around one profession
+/[locale]/career-path          the career map, built around one profession
 /[locale]/admission-plan       checklist plus requirements for saved universities
 /[locale]/grants               grant information per university
 /[locale]/search               grouped results across every entity
@@ -148,9 +148,43 @@ Headers are Prisma field names. Empty cells become `null`. List columns use a JS
 
 Filters and sorting are URL search parameters translated into Prisma `where`
 and `orderBy` clauses, so a filtered list is shareable and survives a reload.
-Favourites, the answers in progress, the last test result and the admission-plan
-ticks are the only client-side state; they live in `localStorage` behind
-`lib/user-state.ts`.
+Favourites, the answers in progress, the last test result and the admission- and
+development-plan ticks are the only client-side state; they live in
+`localStorage` behind `lib/user-state.ts`.
+
+## The career map
+
+`/[locale]/career-path` is the product's navigator: one page that answers the
+journey's questions in order — *who am I* → *what suits me* → *who can I become*
+→ *where do I study* → *what do I do now* → *how do I get there*. Its nine
+stations are the profile, the recommended directions, the professions inside
+them, the comparison of saved professions, the universities, the admission plan,
+the development plan, the career path itself and the alternative routes.
+
+A sticky progress slider at the top shows how far along the visitor is and jumps
+to each station. Six milestones fill it, and each counts only once the visitor
+has actually taken the step — finished the test, saved a direction, chosen a
+profession, saved a university, ticked an admission step, ticked a development
+step. Progress and the profile are computed in `lib/career-map.ts`, which is
+pure and unit-tested.
+
+The profile is not a new source of truth: each answered question contributes its
+option's **source archetype** to that question's **source block**, so a block
+reads as "of the questions you answered here, this is what you chose most
+often". The three blocks the sheet uses are given a plain-language caption
+(`Личность` → "strengths and abilities") through a small table in
+`lib/career-map.ts`; like the archetype weights in `lib/test-mapping.ts` that
+table is a **product decision, not source data**, and a block the sheet adds
+later simply appears under its own label with no caption.
+
+The development plan is the one station the sheet has no content for. It is
+therefore a checklist of **action prompts** — build these skills, strengthen
+these subjects, take courses, build projects, enter competitions, assemble a
+portfolio — filled in with the profession's own skills and school subjects. No
+course, contest, internship or deadline is ever named that the source did not
+provide, and the interface says so under the list. For the same reason the
+career-path chain shows its growth step as unknown while `careerLadder` is
+empty, rather than inventing job titles.
 
 ## Tests
 
@@ -197,3 +231,39 @@ corepack pnpm@9.15.4 start
 ```
 
 Run `pnpm db:import:sheet` after deploying to load or refresh the catalogue.
+
+### Railway
+
+`railway.json` holds the deployment contract: Nixpacks builds the app, and each
+release runs `prisma migrate deploy` before `next start`, so the schema is
+migrated on every deploy and never at build time. `/ru` is the health check —
+`/` is a locale redirect and would not answer with `200`. `postinstall` runs
+`prisma generate`, because a fresh clone has no generated client and the build
+imports it.
+
+```bash
+railway login
+railway init                 # or: railway link, for an existing project
+railway add --database postgres
+railway up
+```
+
+Railway's PostgreSQL plugin publishes `DATABASE_URL` to the service; nothing
+else is required. `next start` binds to the injected `PORT`, and
+`RAILWAY_PUBLIC_DOMAIN` is picked up automatically as the `metadataBase` for
+social images — set `NEXT_PUBLIC_SITE_URL` instead when serving from a custom
+domain.
+
+The catalogue is **not** part of the image. After the first successful deploy,
+load it once against the deployed database:
+
+```bash
+railway run pnpm db:import:sheet
+```
+
+| Variable | Where it comes from | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL plugin | Prisma connection string. |
+| `PORT` | Railway | Injected; `next start` binds to it. |
+| `RAILWAY_PUBLIC_DOMAIN` | Railway | Absolute base for Open Graph images. |
+| `NEXT_PUBLIC_SITE_URL` | you, optional | Overrides the base on a custom domain. |

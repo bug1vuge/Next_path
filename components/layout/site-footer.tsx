@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {useTranslations} from "next-intl";
 import {Link} from "@/i18n/navigation";
 
@@ -8,9 +9,12 @@ export function SiteFooter() {
     <footer className="mt-auto border-t border-border bg-surface">
       <div className="container-page grid gap-8 py-10 sm:grid-cols-2">
         <div>
-          <p className="text-xl font-extrabold">
-            Next <span className="text-brand">Path</span>
-          </p>
+          <div className="flex items-center gap-2.5">
+            <Image alt="" className="h-10 w-10" height={40} src="/logo-mark.png" unoptimized width={40} />
+            <p className="text-xl font-extrabold">
+              Next <span className="text-brand">Path</span>
+            </p>
+          </div>
           <p className="mt-3 max-w-sm text-sm leading-6 text-muted">{t("description")}</p>
           <p className="mt-4 max-w-sm text-xs leading-5 text-muted">{t("sourceNote")}</p>
         </div>
