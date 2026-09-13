@@ -2,10 +2,9 @@ import {ArrowRight, Compass, GraduationCap, Sparkles} from "lucide-react";
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import {DirectionCard, type DirectionCardData} from "@/components/catalog/cards";
 import {buttonClass} from "@/components/ui/button";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {Link} from "@/i18n/navigation";
 import {getCatalogCounts, getDirections} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {localizedText, localizedValues} from "@/lib/content";
 import type {Locale} from "@/lib/locales";
 
 export default async function HomePage({params}: {params: Promise<{locale: Locale}>}) {
@@ -20,7 +19,7 @@ export default async function HomePage({params}: {params: Promise<{locale: Local
     description: localizedText(direction, "description", locale),
     icon: direction.icon,
     professionCount: direction._count.professions,
-    skills: direction.skills
+    skills: localizedValues(direction, "skills", locale)
   }));
 
   return (
@@ -81,7 +80,6 @@ export default async function HomePage({params}: {params: Promise<{locale: Local
 
       {cards.length > 0 ? (
         <section className="container-page py-14">
-          <ContentNotice locale={locale} />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-2xl font-extrabold tracking-tight">{t("directionsTitle")}</h2>
             <Link className={buttonClass("ghost")} href="/directions">

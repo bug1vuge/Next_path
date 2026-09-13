@@ -1,10 +1,9 @@
 import {getTranslations, setRequestLocale} from "next-intl/server";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {PageHeader} from "@/components/ui/page-header";
 import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {getGrants} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {localizedPlace, localizedText} from "@/lib/content";
 import type {Locale} from "@/lib/locales";
 
 export default async function GrantsPage({params}: {params: Promise<{locale: Locale}>}) {
@@ -17,7 +16,6 @@ export default async function GrantsPage({params}: {params: Promise<{locale: Loc
   return (
     <div className="container-page pb-16">
       <PageHeader title={t("title")} description={t("subtitle")} />
-      <ContentNotice locale={locale} />
 
       <p className="mb-6 rounded-2xl bg-peach px-4 py-3 text-sm leading-6">{t("note")}</p>
 
@@ -34,7 +32,7 @@ export default async function GrantsPage({params}: {params: Promise<{locale: Loc
                     {localizedText(university, "name", locale)}
                   </Link>
                   <span className="text-sm text-muted">
-                    {university.city ? `${university.country}, ${university.city}` : university.country}
+                    {localizedPlace(university, locale)}
                   </span>
                 </div>
                 <p className="mt-3 text-sm leading-6 whitespace-pre-line">{university.admission?.grants}</p>

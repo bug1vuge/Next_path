@@ -1,18 +1,21 @@
-import type {Demand} from "@prisma/client";
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import type {ProfessionCardData} from "@/components/catalog/cards";
 import {Field, FilterPanel, NumberField, Select, TextField} from "@/components/catalog/filter-panel";
 import {ProfessionResults} from "@/components/catalog/profession-results";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {PageHeader} from "@/components/ui/page-header";
-import {DEMAND_VALUES, getDirections, getProfessionFacets, getProfessions, hasNumericSalaries} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {getDirections, getProfessionFacets, getProfessions, hasNumericSalaries} from "@/lib/catalog";
+import {localizedText, localizedValue, localizedValues} from "@/lib/content";
 import type {Locale} from "@/lib/locales";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function single(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+}
+
+function rank(value: string): number | undefined {
+  if (!/^\d+$/.test(value)) return undefined;
+  return Number.parseInt(value, 10);
 }
 
 function positiveInt(value: string): number | undefined {
@@ -50,7 +53,7 @@ export default async function ProfessionsPage({
   const {items} = await getProfessions({
     query: filters.query || undefined,
     direction: filters.direction || undefined,
-    demand: (DEMAND_VALUES as readonly string[]).includes(filters.demand) ? (filters.demand as Demand) : undefined,
+    demandRank: rank(filters.demand),
     salaryLevel: positiveInt(filters.salaryLevel),
     minSalary: showNumericSalary ? positiveInt(filters.minSalary) : undefined,
     sort: filters.sort
@@ -62,15 +65,14 @@ export default async function ProfessionsPage({
     description: localizedText(profession, "shortDescription", locale),
     directionSlug: profession.direction.slug,
     directionName: localizedText(profession.direction, "name", locale),
-    salaryLabel: profession.salaryLabel,
-    demandLabel: profession.demandLabel,
-    skills: profession.skills
+    salaryLabel: localizedValue(profession, "salaryLabel", locale),
+    demandLabel: localizedValue(profession, "demandLabel", locale),
+    skills: localizedValues(profession, "skills", locale)
   }));
 
   return (
     <div className="container-page pb-16">
       <PageHeader title={t("title")} description={t("subtitle")} />
-      <ContentNotice locale={locale} />
 
       <FilterPanel resetHref="/professions" summary={t("found", {count: cards.length})}>
         <Field label={tCommon("search")}>
@@ -90,19 +92,24 @@ export default async function ProfessionsPage({
         <Field label={t("filterDemand")}>
           <Select
             name="demand"
-            options={facets.demands.map((entry) => ({value: entry.value, label: entry.label}))}
+            options={facets.demands.map((entry) => ({value: entry.value, label: localizedValue(entry, "demandLabel", locale)}))}
             placeholder={tCommon("all")}
             value={filters.demand}
           />
         </Field>
-        <Field label={t("filterSalaryLevel")}>
-          <Select
-            name="salary"
-            options={facets.salaryLevels.map((entry) => ({value: entry.value, label: entry.label}))}
-            placeholder={tCommon("all")}
-            value={filters.salaryLevel}
-          />
-        </Field>
+        {facets.salaryLevels.length > 0 ? (
+          <Field label={t("filterSalaryLevel")}>
+            <Select
+              name="salary"
+              options={facets.salaryLevels.map((entry) => ({
+                value: entry.value,
+                label: localizedValue(entry, "salaryLabel", locale)
+              }))}
+              placeholder={tCommon("all")}
+              value={filters.salaryLevel}
+            />
+          </Field>
+        ) : null}
         {showNumericSalary ? (
           <Field label={t("filterMinSalary")}>
             <NumberField name="minSalary" placeholder="0" value={filters.minSalary} />

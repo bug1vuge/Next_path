@@ -20,23 +20,28 @@ enum QuestionCategory {
 }
 
 model Direction {
-  id             String       @id @default(cuid())
-  slug           String       @unique
-  sortOrder      Int          @default(0)
-  name_ru        String
-  name_kk        String
-  name_en        String
-  description_ru String       @db.Text
-  description_kk String       @db.Text
-  description_en String       @db.Text
-  whoItSuits_ru  String       @db.Text
-  whoItSuits_kk  String       @db.Text
-  whoItSuits_en  String       @db.Text
-  skills         String[]
-  schoolSubjects String[]
-  icon           String
-  professions    Profession[]
-  programs       Program[]
+  id                String       @id @default(cuid())
+  slug              String       @unique
+  sortOrder         Int          @default(0)
+  name_ru           String
+  name_kk           String
+  name_en           String
+  description_ru    String       @db.Text
+  description_kk    String       @db.Text
+  description_en    String       @db.Text
+  whoItSuits_ru     String       @db.Text
+  whoItSuits_kk     String       @db.Text
+  whoItSuits_en     String       @db.Text
+  skills            String[]
+  /// Localised skills/subjects: the unsuffixed column holds the Russian source value.
+  skills_kk         String[]     @default([])
+  skills_en         String[]     @default([])
+  schoolSubjects    String[]
+  schoolSubjects_kk String[]     @default([])
+  schoolSubjects_en String[]     @default([])
+  icon              String
+  professions       Profession[]
+  programs          Program[]
 }
 
 model Profession {
@@ -55,9 +60,13 @@ model Profession {
   salaryMax           Int?
   salaryAverage       Int?
   salaryLabel         String?
+  salaryLabel_kk      String?
+  salaryLabel_en      String?
   salaryRank          Int?
   demand              Demand
   demandLabel         String?
+  demandLabel_kk      String?
+  demandLabel_en      String?
   demandRank          Int?
   specialties         String[]
   pros_ru             String[]
@@ -67,7 +76,11 @@ model Profession {
   cons_kk             String[]
   cons_en             String[]
   skills              String[]
+  skills_kk           String[]  @default([])
+  skills_en           String[]  @default([])
   schoolSubjects      String[]
+  schoolSubjects_kk   String[]  @default([])
+  schoolSubjects_en   String[]  @default([])
   careerLadder        Json
   directionId         String
   direction           Direction @relation(fields: [directionId], references: [id], onDelete: Cascade)
@@ -79,29 +92,38 @@ model Profession {
 }
 
 model University {
-  id             String    @id @default(cuid())
-  slug           String    @unique
-  name_ru        String
-  name_kk        String
-  name_en        String
-  country        String
-  city           String
-  rating         Float?
-  ratingLabel    String?
-  tuitionMin     Int?
-  tuitionMax     Int?
+  id              String     @id @default(cuid())
+  slug            String     @unique
+  name_ru         String
+  name_kk         String
+  name_en         String
+  /// Russian source value; also the canonical key used by the country/city filters.
+  country         String
+  country_kk      String     @default("")
+  country_en      String     @default("")
+  city            String
+  city_kk         String     @default("")
+  city_en         String     @default("")
+  rating          Float?
+  ratingLabel     String?
+  ratingLabel_kk  String?
+  ratingLabel_en  String?
+  tuitionMin      Int?
+  tuitionMax      Int?
   tuitionCurrency String?
-  tuitionNote    String?
-  website        String?
-  email          String?
-  phone          String?
-  address        String?
-  description_ru String    @db.Text
-  description_kk String    @db.Text
-  description_en String    @db.Text
-  programs       Program[]
-  reviews        Review[]
-  admission      Admission?
+  tuitionNote     String?
+  tuitionNote_kk  String?
+  tuitionNote_en  String?
+  website         String?
+  email           String?
+  phone           String?
+  address         String?
+  description_ru  String     @db.Text
+  description_kk  String     @db.Text
+  description_en  String     @db.Text
+  programs        Program[]
+  reviews         Review[]
+  admission       Admission?
 
   @@index([country])
   @@index([city])
@@ -113,6 +135,8 @@ model Admission {
   id           String     @id @default(cuid())
   universityId String     @unique
   exams        String?    @db.Text
+  exams_kk     String?    @db.Text
+  exams_en     String?    @db.Text
   ielts        String?    @db.Text
   sat          String?    @db.Text
   grants       String?    @db.Text
@@ -145,30 +169,35 @@ model Program {
 }
 
 model Question {
-  id       String           @id @default(cuid())
-  order    Int              @unique
+  id        String           @id @default(cuid())
+  order     Int              @unique
   /// Stable key derived from the source row so re-imports update instead of duplicating.
-  sourceKey String          @unique
-  block    String
-  text_ru  String           @db.Text
-  text_kk  String           @db.Text
-  text_en  String           @db.Text
-  category QuestionCategory
-  options  Option[]
+  sourceKey String           @unique
+  /// Russian source block; also the key the career map captions by.
+  block     String
+  block_kk  String           @default("")
+  block_en  String           @default("")
+  text_ru   String           @db.Text
+  text_kk   String           @db.Text
+  text_en   String           @db.Text
+  category  QuestionCategory
+  options   Option[]
 }
 
 model Option {
-  id         String   @id @default(cuid())
+  id           String   @id @default(cuid())
   /// Stable key derived from the source row so re-imports update instead of duplicating.
-  sourceKey  String   @unique
-  questionId String
+  sourceKey    String   @unique
+  questionId   String
   /// Raw archetype label from the source sheet ("A - направление" etc.).
-  archetype  String
-  text_ru    String   @db.Text
-  text_kk    String   @db.Text
-  text_en    String   @db.Text
-  weights    Json
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  archetype    String
+  archetype_kk String   @default("")
+  archetype_en String   @default("")
+  text_ru      String   @db.Text
+  text_kk      String   @db.Text
+  text_en      String   @db.Text
+  weights      Json
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([questionId])
 }

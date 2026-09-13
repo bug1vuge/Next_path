@@ -141,12 +141,15 @@ export function CareerMap({
   professions,
   blocks,
   optionMeta,
+  labels,
   selection
 }: {
   directions: MapDirection[];
   professions: MapProfession[];
   blocks: string[];
   optionMeta: Record<string, OptionMeta>;
+  /** Source block / archetype → the label shown in the current language. */
+  labels: Record<string, string>;
   selection: MapSelection | null;
 }) {
   const t = useTranslations("careerPath");
@@ -271,12 +274,12 @@ export function CareerMap({
                     <p className="text-xs font-bold text-brand uppercase">
                       {caption ? t(`blockCaption.${caption}`) : t("blockCaptionFallback")}
                     </p>
-                    <h3 className="mt-1 font-extrabold">{block.block}</h3>
+                    <h3 className="mt-1 font-extrabold">{labels[block.block] ?? block.block}</h3>
                     <ul className="mt-4 grid gap-3">
                       {block.traits.slice(0, 3).map((trait) => (
                         <li key={trait.archetype}>
                           <div className="flex items-baseline justify-between gap-3">
-                            <span className="text-sm font-semibold">{trait.archetype}</span>
+                            <span className="text-sm font-semibold">{labels[trait.archetype] ?? trait.archetype}</span>
                             <span className="text-sm font-bold tabular-nums text-muted">{trait.percent}%</span>
                           </div>
                           <Bar percent={trait.percent} />

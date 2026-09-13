@@ -13,6 +13,8 @@ export type ProfessionFilters = {
   query?: string;
   direction?: string;
   demand?: Demand;
+  /** 3 = very high, 2 = high, 1 = medium, 0 = low — finer than the `Demand` enum. */
+  demandRank?: number;
   salaryLevel?: number;
   minSalary?: number;
   sort?: string;
@@ -83,15 +85,26 @@ export async function getProfessions(filters: ProfessionFilters) {
   }
   if (filters.direction) where.direction = {slug: filters.direction};
   if (filters.demand) where.demand = filters.demand;
+  if (filters.demandRank !== undefined) where.demandRank = filters.demandRank;
   if (filters.salaryLevel !== undefined) where.salaryRank = {gte: filters.salaryLevel};
   if (filters.minSalary !== undefined) where.salaryAverage = {gte: filters.minSalary};
 
   const orderBy: Prisma.ProfessionOrderByWithRelationInput[] = (() => {
     switch (filters.sort) {
+      // Figures sort first; a profession the source describes only in words
+      // ("depends on the business") follows, ranked by its level if it has one.
       case "salary-asc":
-        return [{salaryRank: "asc"}, {name_ru: "asc"}];
+        return [
+          {salaryAverage: {sort: "asc", nulls: "last"}},
+          {salaryRank: {sort: "asc", nulls: "last"}},
+          {name_ru: "asc"}
+        ];
       case "salary-desc":
-        return [{salaryRank: "desc"}, {name_ru: "asc"}];
+        return [
+          {salaryAverage: {sort: "desc", nulls: "last"}},
+          {salaryRank: {sort: "desc", nulls: "last"}},
+          {name_ru: "asc"}
+        ];
       case "demand":
         return [{demandRank: "desc"}, {name_ru: "asc"}];
       default:
@@ -141,6 +154,8 @@ export async function getUniversities(filters: UniversityFilters) {
       {name_kk: nameSearch(variant)},
       {name_en: nameSearch(variant)},
       {city: nameSearch(variant)},
+      {city_kk: nameSearch(variant)},
+      {city_en: nameSearch(variant)},
       {programs: {some: {name_ru: nameSearch(variant)}}}
     ]);
   }
@@ -193,14 +208,36 @@ export async function getUniversity(slug: string) {
   });
 }
 
+/**
+ * The Russian value is the filter key (it is what the URL carries); the
+ * translations travel along so the page can label each option in its language.
+ */
 export async function getUniversityFacets() {
   const [countries, cities] = await Promise.all([
-    db.university.groupBy({by: ["country"], _count: {_all: true}, orderBy: {country: "asc"}}),
-    db.university.groupBy({by: ["city"], _count: {_all: true}, orderBy: {city: "asc"}})
+    db.university.groupBy({
+      by: ["country", "country_kk", "country_en"],
+      _count: {_all: true},
+      orderBy: {country: "asc"}
+    }),
+    db.university.groupBy({by: ["city", "city_kk", "city_en"], _count: {_all: true}, orderBy: {city: "asc"}})
   ]);
   return {
-    countries: countries.map((entry) => ({value: entry.country, count: entry._count._all})),
-    cities: cities.filter((entry) => entry.city).map((entry) => ({value: entry.city, count: entry._count._all}))
+    countries: countries.map((entry) => ({
+      value: entry.country,
+      country: entry.country,
+      country_kk: entry.country_kk,
+      country_en: entry.country_en,
+      count: entry._count._all
+    })),
+    cities: cities
+      .filter((entry) => entry.city)
+      .map((entry) => ({
+        value: entry.city,
+        city: entry.city,
+        city_kk: entry.city_kk,
+        city_en: entry.city_en,
+        count: entry._count._all
+      }))
   };
 }
 
@@ -210,18 +247,36 @@ export async function getUniversityFacets() {
  */
 export async function getProfessionFacets() {
   const [demands, salaries] = await Promise.all([
-    db.profession.groupBy({by: ["demand", "demandLabel"], _count: {_all: true}, orderBy: {demand: "asc"}}),
-    db.profession.groupBy({by: ["salaryRank", "salaryLabel"], _count: {_all: true}, orderBy: {salaryRank: "desc"}})
+    // Grouped by rank, not by the enum: "Высокая" and "Очень высокая" are both
+    // HIGH, and as enum options they would be two choices returning the same list.
+    db.profession.groupBy({
+      by: ["demandRank", "demandLabel", "demandLabel_kk", "demandLabel_en"],
+      _count: {_all: true},
+      orderBy: {demandRank: "desc"}
+    }),
+    db.profession.groupBy({
+      by: ["salaryRank", "salaryLabel", "salaryLabel_kk", "salaryLabel_en"],
+      _count: {_all: true},
+      orderBy: {salaryRank: "desc"}
+    })
   ]);
   return {
     demands: demands
-      .filter((entry) => entry.demandLabel !== null)
-      .map((entry) => ({value: entry.demand, label: entry.demandLabel as string, count: entry._count._all})),
+      .filter((entry) => entry.demandRank !== null && entry.demandLabel !== null)
+      .map((entry) => ({
+        value: String(entry.demandRank),
+        demandLabel: entry.demandLabel as string,
+        demandLabel_kk: entry.demandLabel_kk ?? (entry.demandLabel as string),
+        demandLabel_en: entry.demandLabel_en ?? (entry.demandLabel as string),
+        count: entry._count._all
+      })),
     salaryLevels: salaries
       .filter((entry) => entry.salaryRank !== null && entry.salaryLabel !== null)
       .map((entry) => ({
         value: String(entry.salaryRank),
-        label: entry.salaryLabel as string,
+        salaryLabel: entry.salaryLabel as string,
+        salaryLabel_kk: entry.salaryLabel_kk ?? (entry.salaryLabel as string),
+        salaryLabel_en: entry.salaryLabel_en ?? (entry.salaryLabel as string),
         count: entry._count._all
       }))
   };
@@ -269,7 +324,7 @@ export async function getFavouriteIndex() {
   const [directions, professions, universities] = await Promise.all([
     db.direction.findMany({
       orderBy: {sortOrder: "asc"},
-      select: {slug: true, name_ru: true, name_kk: true, name_en: true, description_ru: true, description_kk: true, description_en: true, icon: true, skills: true, _count: {select: {professions: true}}}
+      select: {slug: true, name_ru: true, name_kk: true, name_en: true, description_ru: true, description_kk: true, description_en: true, icon: true, skills: true, skills_kk: true, skills_en: true, _count: {select: {professions: true}}}
     }),
     db.profession.findMany({
       orderBy: {name_ru: "asc"},
@@ -282,8 +337,14 @@ export async function getFavouriteIndex() {
         shortDescription_kk: true,
         shortDescription_en: true,
         salaryLabel: true,
+        salaryLabel_kk: true,
+        salaryLabel_en: true,
         demandLabel: true,
+        demandLabel_kk: true,
+        demandLabel_en: true,
         skills: true,
+        skills_kk: true,
+        skills_en: true,
         direction: {select: {slug: true, name_ru: true, name_kk: true, name_en: true}}
       }
     }),
@@ -295,8 +356,14 @@ export async function getFavouriteIndex() {
         name_kk: true,
         name_en: true,
         country: true,
+        country_kk: true,
+        country_en: true,
         city: true,
+        city_kk: true,
+        city_en: true,
         ratingLabel: true,
+        ratingLabel_kk: true,
+        ratingLabel_en: true,
         tuitionMin: true,
         tuitionMax: true,
         tuitionCurrency: true,
@@ -317,8 +384,14 @@ export async function getAdmissionIndex() {
       name_kk: true,
       name_en: true,
       country: true,
+      country_kk: true,
+      country_en: true,
       city: true,
-      admission: {select: {exams: true, ielts: true, sat: true, grants: true, deadline: true}}
+      city_kk: true,
+      city_en: true,
+      admission: {
+        select: {exams: true, exams_kk: true, exams_en: true, ielts: true, sat: true, grants: true, deadline: true}
+      }
     }
   });
 }
@@ -348,8 +421,8 @@ export async function getCareerMapIndex() {
         name_ru: true, name_kk: true, name_en: true,
         description_ru: true, description_kk: true, description_en: true,
         whoItSuits_ru: true, whoItSuits_kk: true, whoItSuits_en: true,
-        skills: true,
-        schoolSubjects: true,
+        skills: true, skills_kk: true, skills_en: true,
+        schoolSubjects: true, schoolSubjects_kk: true, schoolSubjects_en: true,
         icon: true,
         _count: {select: {professions: true}}
       }
@@ -360,10 +433,10 @@ export async function getCareerMapIndex() {
         slug: true,
         name_ru: true, name_kk: true, name_en: true,
         shortDescription_ru: true, shortDescription_kk: true, shortDescription_en: true,
-        salaryLabel: true,
-        demandLabel: true,
-        skills: true,
-        schoolSubjects: true,
+        salaryLabel: true, salaryLabel_kk: true, salaryLabel_en: true,
+        demandLabel: true, demandLabel_kk: true, demandLabel_en: true,
+        skills: true, skills_kk: true, skills_en: true,
+        schoolSubjects: true, schoolSubjects_kk: true, schoolSubjects_en: true,
         direction: {select: {slug: true}}
       }
     }),
@@ -371,18 +444,30 @@ export async function getCareerMapIndex() {
     // source archetype and block behind every option they could have picked.
     db.question.findMany({
       orderBy: {order: "asc"},
-      select: {block: true, options: {select: {id: true, archetype: true}}}
+      select: {
+        block: true,
+        block_kk: true,
+        block_en: true,
+        options: {select: {id: true, archetype: true, archetype_kk: true, archetype_en: true}}
+      }
     })
   ]);
 
+  // The Russian block and archetype stay the keys the profile is computed on;
+  // their translations are display labels only.
   const blocks: string[] = [];
   const optionMeta: Record<string, {archetype: string; block: string}> = {};
+  const labels: Record<string, {kk: string; en: string}> = {};
   for (const question of questions) {
     if (!blocks.includes(question.block)) blocks.push(question.block);
-    for (const option of question.options) optionMeta[option.id] = {archetype: option.archetype, block: question.block};
+    labels[question.block] = {kk: question.block_kk, en: question.block_en};
+    for (const option of question.options) {
+      optionMeta[option.id] = {archetype: option.archetype, block: question.block};
+      labels[option.archetype] = {kk: option.archetype_kk, en: option.archetype_en};
+    }
   }
 
-  return {directions, professions, blocks, optionMeta};
+  return {directions, professions, blocks, optionMeta, labels};
 }
 
 export async function getProfessionOptions() {
@@ -435,7 +520,9 @@ export async function searchEverything(query: string) {
           {name_ru: nameSearch(variant)},
           {name_kk: nameSearch(variant)},
           {name_en: nameSearch(variant)},
-          {city: nameSearch(variant)}
+          {city: nameSearch(variant)},
+          {city_kk: nameSearch(variant)},
+          {city_en: nameSearch(variant)}
         ])
       },
       orderBy: {name_ru: "asc"},

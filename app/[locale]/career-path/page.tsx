@@ -1,9 +1,8 @@
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import {CareerMap, type MapSelection} from "@/components/career/career-map";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {PageHeader} from "@/components/ui/page-header";
 import {getCareerMapIndex, getCareerPath} from "@/lib/catalog";
-import {localizedList, localizedText} from "@/lib/content";
+import {localizedList, localizedText, localizedValue, localizedValues} from "@/lib/content";
 import {formatMoneyRange} from "@/lib/format";
 import type {Locale} from "@/lib/locales";
 
@@ -42,10 +41,18 @@ export default async function CareerMapPage({
     name: localizedText(direction, "name", locale),
     description: localizedText(direction, "description", locale),
     whoItSuits: localizedText(direction, "whoItSuits", locale),
-    skills: direction.skills,
-    schoolSubjects: direction.schoolSubjects,
+    skills: localizedValues(direction, "skills", locale),
+    schoolSubjects: localizedValues(direction, "schoolSubjects", locale),
     professionCount: direction._count.professions
   }));
+
+  // Profile labels: the Russian block/archetype is the key, its translation the text shown.
+  const labels = Object.fromEntries(
+    Object.entries(index.labels).map(([key, translation]) => [
+      key,
+      locale === "ru" ? key : translation[locale] || key
+    ])
+  );
 
   const directionNames = new Map(directions.map((direction) => [direction.slug, direction.name]));
 
@@ -55,10 +62,10 @@ export default async function CareerMapPage({
     shortDescription: localizedText(profession, "shortDescription", locale),
     directionSlug: profession.direction.slug,
     directionName: directionNames.get(profession.direction.slug) ?? "",
-    salaryLabel: profession.salaryLabel,
-    demandLabel: profession.demandLabel,
-    skills: profession.skills,
-    schoolSubjects: profession.schoolSubjects
+    salaryLabel: localizedValue(profession, "salaryLabel", locale),
+    demandLabel: localizedValue(profession, "demandLabel", locale),
+    skills: localizedValues(profession, "skills", locale),
+    schoolSubjects: localizedValues(profession, "schoolSubjects", locale)
   }));
 
   const selection: MapSelection | null = path
@@ -67,13 +74,13 @@ export default async function CareerMapPage({
           slug: path.profession.slug,
           name: localizedText(path.profession, "name", locale),
           whatTheyDo: localizedText(path.profession, "whatTheyDo", locale),
-          skills: path.profession.skills,
-          schoolSubjects: path.profession.schoolSubjects,
+          skills: localizedValues(path.profession, "skills", locale),
+          schoolSubjects: localizedValues(path.profession, "schoolSubjects", locale),
           specialties: path.profession.specialties,
           pros: localizedList(path.profession, "pros", locale),
           cons: localizedList(path.profession, "cons", locale),
-          salaryLabel: path.profession.salaryLabel,
-          demandLabel: path.profession.demandLabel,
+          salaryLabel: localizedValue(path.profession, "salaryLabel", locale),
+          demandLabel: localizedValue(path.profession, "demandLabel", locale),
           // Empty until the source provides career-ladder content.
           ladder: (Array.isArray(path.profession.careerLadder) ? (path.profession.careerLadder as CareerStep[]) : [])
             .map((step) => step[`title_${locale}`] || step.title_ru || "")
@@ -84,12 +91,12 @@ export default async function CareerMapPage({
         universities: path.universities.map((university) => ({
           slug: university.slug,
           name: localizedText(university, "name", locale),
-          country: university.country,
-          city: university.city,
-          ratingLabel: university.ratingLabel,
+          country: localizedValue(university, "country", locale),
+          city: localizedValue(university, "city", locale),
+          ratingLabel: localizedValue(university, "ratingLabel", locale),
           tuition: formatMoneyRange(university.tuitionMin, university.tuitionMax, university.tuitionCurrency, locale),
           programCount: university.programs.length,
-          exams: university.admission?.exams ?? null,
+          exams: university.admission ? localizedValue(university.admission, "exams", locale) : null,
           ielts: university.admission?.ielts ?? null,
           sat: university.admission?.sat ?? null,
           grants: university.admission?.grants ?? null,
@@ -105,10 +112,10 @@ export default async function CareerMapPage({
         eyebrow={selection ? t("title") : undefined}
         title={selection ? selection.profession.name : t("title")}
       />
-      <ContentNotice locale={locale} />
       <CareerMap
         blocks={index.blocks}
         directions={directions}
+        labels={labels}
         optionMeta={index.optionMeta}
         professions={professions}
         selection={selection}

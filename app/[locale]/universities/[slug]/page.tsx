@@ -2,13 +2,12 @@ import {ExternalLink, Mail, MapPin, Phone} from "lucide-react";
 import {notFound} from "next/navigation";
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import {buttonClass} from "@/components/ui/button";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {FavouriteButton} from "@/components/ui/favourite-button";
 import {DefinitionList, definitions, PageHeader, Section} from "@/components/ui/page-header";
 import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {getUniversity} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {localizedPlace, localizedText, localizedValue} from "@/lib/content";
 import {formatMoneyRange} from "@/lib/format";
 import type {Locale} from "@/lib/locales";
 
@@ -25,16 +24,18 @@ export default async function UniversityPage({params}: {params: Promise<{locale:
   const name = localizedText(university, "name", locale);
   const tuition = formatMoneyRange(university.tuitionMin, university.tuitionMax, university.tuitionCurrency, locale);
   const description = localizedText(university, "description", locale);
+  const ratingLabel = localizedValue(university, "ratingLabel", locale);
+  const tuitionNote = localizedValue(university, "tuitionNote", locale);
 
   const facts = definitions([
-    university.ratingLabel ? {term: t("rating"), value: `${university.ratingLabel} — ${t("ratingHint")}`} : null,
-    tuition ? {term: t("tuition"), value: university.tuitionNote ? `${tuition}\n${university.tuitionNote}` : tuition} : null,
-    !tuition && university.tuitionNote ? {term: t("tuition"), value: university.tuitionNote} : null
+    ratingLabel ? {term: t("rating"), value: `${ratingLabel} — ${t("ratingHint")}`} : null,
+    tuition ? {term: t("tuition"), value: tuitionNote ? `${tuition}\n${tuitionNote}` : tuition} : null,
+    !tuition && tuitionNote ? {term: t("tuition"), value: tuitionNote} : null
   ]);
 
   const admission = university.admission;
   const admissionFacts = definitions([
-    admission?.exams ? {term: t("exams"), value: admission.exams} : null,
+    admission?.exams ? {term: t("exams"), value: localizedValue(admission, "exams", locale)} : null,
     admission?.ielts ? {term: t("ielts"), value: admission.ielts} : null,
     admission?.sat ? {term: t("sat"), value: admission.sat} : null,
     admission?.grants ? {term: t("grants"), value: admission.grants} : null,
@@ -89,13 +90,10 @@ export default async function UniversityPage({params}: {params: Promise<{locale:
             </Link>
           </>
         }
-        eyebrow={
-          university.city ? `${university.country}, ${university.city}` : university.country
-        }
+        eyebrow={localizedPlace(university, locale)}
         title={name}
         description={description || undefined}
       />
-      <ContentNotice locale={locale} />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <article className="rounded-3xl border border-border bg-surface p-6">

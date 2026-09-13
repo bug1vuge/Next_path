@@ -1,7 +1,7 @@
 import type {Locale} from "./locales";
 
 const CURRENCY_SUFFIX: Record<string, string> = {KZT: "₸"};
-const CURRENCY_PREFIX: Record<string, string> = {USD: "$", GBP: "£", EUR: "€", CAD: "CA$", SGD: "S$", AUD: "A$"};
+const CURRENCY_PREFIX: Record<string, string> = {USD: "$", GBP: "£", EUR: "€", CAD: "CA$", SGD: "S$", AUD: "A$", CHF: "CHF "};
 
 const INTL_LOCALE: Record<Locale, string> = {ru: "ru-RU", kk: "kk-KZ", en: "en-US"};
 

@@ -4,20 +4,27 @@
  *   pnpm db:import:sheet                  # download the published sheet
  *   pnpm db:import:sheet ./local.xlsx     # or import a local .xlsx export
  *
+ * Every sheet exists three times — a Russian, a Kazakh and an English tab — with
+ * the same rows in the same order and translated headers. Rows are therefore
+ * paired across languages by position, and columns are read by position too.
+ * The Russian tab provides identity (slugs, keys) and every number; the
+ * translations provide text. The import refuses to run when the three tabs of a
+ * sheet differ in row count, because one missing row would silently pair every
+ * later row with the wrong translation.
+ *
  * The import is idempotent: every row is addressed by a stable key derived from
  * the source (slug or `sourceKey`), so re-running updates rows instead of
  * duplicating them, and rows that disappeared from the sheet are removed.
- *
- * Content is Russian. Kazakh and English columns are written empty on purpose —
- * see `lib/content.ts`. Unknown values (ratings, deadlines, tuition in an
- * unparsed currency) stay absent rather than being invented.
+ * Unknown values (ratings, deadlines, tuition in an unparsed currency) stay
+ * absent rather than being invented.
  */
 import {readFile} from "node:fs/promises";
 import * as XLSX from "xlsx";
-import {PrismaClient, type Prisma} from "@prisma/client";
+import {PrismaClient, type Admission, type Prisma} from "@prisma/client";
 import {categoryForBlock, weightsForArchetype} from "../lib/test-mapping";
 import {
   directionSlug,
+  inlineText,
   matchKey,
   optionalText,
   parseDemand,
@@ -25,6 +32,7 @@ import {
   parseSalaryAmount,
   parseSalaryLevel,
   parseTuition,
+  sentenceCase,
   slugify,
   specialtyTokens,
   splitList,
@@ -32,17 +40,28 @@ import {
 } from "./source-parsing";
 
 const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1Xs8wDhcSZ544TUtjivsJa4rVWoBGFc3up97IPDviBRc/export?format=xlsx";
+  "https://docs.google.com/spreadsheets/d/1kxRgInOc2-iqbeJ4g06WERSEdyOw3mjZkYCZzTwRuf8/export?format=xlsx";
 
-const SHEETS = {
-  tests: "Тесты",
-  directions: "Направления",
-  professions: "Профессии",
-  universities: "Университеты",
-  admission: "Поступление",
-  contacts: "Контакты университетов",
-  explanations: "Направления объяснение "
-} as const;
+type Lang = "ru" | "kk" | "en";
+const LANGS: Lang[] = ["ru", "kk", "en"];
+const TAB_SUFFIX: Record<Lang, string> = {ru: "рус", kk: "каз", en: "англ"};
+
+/** Column positions. Headers differ per language, positions do not. */
+const DIRECTION = {name: 0, description: 1};
+const EXPLANATION = {direction: 0, text: 1};
+const PROFESSION = {direction: 0, name: 1, whatTheyDo: 2, salary: 3, demand: 4, pros: 5, cons: 6, subjects: 7, skills: 8, specialties: 9};
+const UNIVERSITY = {name: 0, country: 1, city: 2, directions: 3, mainFields: 4, rating: 5, tuition: 6};
+const ADMISSION = {university: 0, exams: 1};
+const TEST = {question: 0, options: {A: 1, B: 2, C: 3, D: 4}, archetypes: {A: 5, B: 6, C: 7, D: 8}, block: 9};
+
+/**
+ * Admission columns an earlier revision of the sheet carried. When the current
+ * sheet has dropped one, the values already stored for it are kept: a column
+ * that is absent says nothing about the data, unlike a column left blank.
+ */
+const LEGACY_ADMISSION = {ielts: "IELTS", sat: "SAT", grants: "Гранты", deadline: "Дедлайн"} as const;
+
+const REQUIREMENT_LABEL: Record<Lang, string> = {ru: "Экзамены", kk: "Емтихандар", en: "Exams"};
 
 const DIRECTION_ICONS: Record<string, string> = {
   "it-ai": "cpu",
@@ -55,7 +74,10 @@ const DIRECTION_ICONS: Record<string, string> = {
   "education-science": "flask-conical"
 };
 
-type Row = Record<string, unknown>;
+type Cells = unknown[];
+type Sheet = {header: string[]; rows: Cells[]};
+type Localised = Record<Lang, Sheet>;
+type Triple<Value> = Record<Lang, Value>;
 
 const db = new PrismaClient();
 const warnings: string[] = [];
@@ -64,10 +86,74 @@ function warn(message: string) {
   warnings.push(message);
 }
 
-function sheetRows(workbook: XLSX.WorkBook, name: string): Row[] {
-  const sheet = workbook.Sheets[name];
-  if (!sheet) throw new Error(`Sheet "${name}" is missing from the workbook.`);
-  return XLSX.utils.sheet_to_json<Row>(sheet, {defval: ""});
+/** Tab names carry typos and stray spaces ("Професии англ", "Направление объяснение рус "). */
+function tabKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    // `\b` only knows ASCII word characters, so Cyrillic word ends use a lookahead.
+    .replace(/^професии(?=\s|$)/, "профессии")
+    .replace(/^направление(?=\s|$)/, "направления");
+}
+
+function findTab(workbook: XLSX.WorkBook, wanted: string): XLSX.WorkSheet {
+  const name = workbook.SheetNames.find((candidate) => tabKey(candidate) === wanted);
+  if (!name) throw new Error(`Sheet "${wanted}" is missing from the workbook (tabs: ${workbook.SheetNames.join(", ")}).`);
+  return workbook.Sheets[name];
+}
+
+function readSheet(sheet: XLSX.WorkSheet): Sheet {
+  const [header = [], ...rows] = XLSX.utils.sheet_to_json<unknown[]>(sheet, {header: 1, defval: ""});
+  return {
+    header: header.map((cell) => text(cell)),
+    rows: rows.filter((row) => row.some((cell) => text(cell) !== ""))
+  };
+}
+
+function localised(workbook: XLSX.WorkBook, base: string): Localised {
+  const sheets = Object.fromEntries(
+    LANGS.map((lang) => [lang, readSheet(findTab(workbook, `${base} ${TAB_SUFFIX[lang]}`))])
+  ) as Localised;
+  const counts = LANGS.map((lang) => sheets[lang].rows.length);
+  if (new Set(counts).size > 1) {
+    throw new Error(
+      `"${base}" has ${counts.join(" / ")} rows across ru / kk / en — the three tabs must list the same rows in the same order.`
+    );
+  }
+  return sheets;
+}
+
+/** One cell of one row, in every language. */
+function cell(sheet: Localised, row: number, column: number): Triple<unknown> {
+  return {ru: sheet.ru.rows[row][column], kk: sheet.kk.rows[row][column], en: sheet.en.rows[row][column]};
+}
+
+function texts(values: Triple<unknown>, read: (value: unknown) => string = text): Triple<string> {
+  return {ru: read(values.ru), kk: read(values.kk), en: read(values.en)};
+}
+
+function optionals(values: Triple<unknown>): Triple<string | null> {
+  return {ru: optionalText(values.ru), kk: optionalText(values.kk), en: optionalText(values.en)};
+}
+
+function lists(values: Triple<unknown>): Triple<string[]> {
+  return {ru: splitList(values.ru), kk: splitList(values.kk), en: splitList(values.en)};
+}
+
+/**
+ * A Russian row with fewer filled cells than its translations usually has a
+ * value in the wrong column — every later cell then lands in the wrong field.
+ * It is reported, not repaired: which cell moved is for the team to confirm.
+ */
+function checkRowShape(sheetName: string, sheet: Localised, row: number, label: string) {
+  const filled = (lang: Lang) => sheet[lang].rows[row].filter((value) => optionalText(value) !== null).length;
+  const [ru, kk, en] = LANGS.map(filled);
+  if (ru < Math.max(kk, en)) {
+    warn(
+      `${sheetName} рус, row ${row + 2} (${label}): ${ru} filled cells against ${kk} / ${en} in the translations — a value is missing or sits in the wrong column.`
+    );
+  }
 }
 
 async function loadWorkbook(path?: string): Promise<XLSX.WorkBook> {
@@ -94,31 +180,39 @@ function topValues(values: string[], limit: number): string[] {
 }
 
 async function importDirections(workbook: XLSX.WorkBook) {
-  const rows = sheetRows(workbook, SHEETS.directions);
-  const explanations = new Map(
-    sheetRows(workbook, SHEETS.explanations).map((row) => [directionSlug(text(row["Направление"])), text(row["Объяснение"])])
+  const sheet = localised(workbook, "направления");
+  const explanations = localised(workbook, "направления объяснение");
+
+  // Explanations are keyed by the English direction label, which every tab of that sheet shares.
+  const explanationRow = new Map(
+    explanations.ru.rows.map((row, index) => [directionSlug(text(row[EXPLANATION.direction])), index])
   );
 
   const slugs: string[] = [];
-  for (const [index, row] of rows.entries()) {
-    const name = text(row["Направление"]);
-    if (!name) continue;
-    const slug = directionSlug(name);
-    const description = text(row["Описание"]);
-    const whoItSuits = explanations.get(slug) ?? "";
-    if (!whoItSuits) warn(`Direction "${name}" has no "Объяснение" row.`);
+  for (const [index] of sheet.ru.rows.entries()) {
+    // The Russian tab names directions in Russian; the English tab keeps the label
+    // the professions and universities sheets use, so the key comes from there.
+    const key = text(sheet.en.rows[index][DIRECTION.name]);
+    if (!key) continue;
+    const slug = directionSlug(key);
+    const name = texts(cell(sheet, index, DIRECTION.name));
+    const description = texts(cell(sheet, index, DIRECTION.description));
+    const explanation = explanationRow.has(slug)
+      ? texts(cell(explanations, explanationRow.get(slug) as number, EXPLANATION.text))
+      : {ru: "", kk: "", en: ""};
+    if (!explanation.ru) warn(`Direction "${key}" has no "Объяснение" row.`);
 
     const data = {
       sortOrder: index,
-      name_ru: name,
-      name_kk: "",
-      name_en: "",
-      description_ru: description,
-      description_kk: "",
-      description_en: "",
-      whoItSuits_ru: whoItSuits,
-      whoItSuits_kk: "",
-      whoItSuits_en: "",
+      name_ru: name.ru,
+      name_kk: name.kk,
+      name_en: name.en,
+      description_ru: description.ru,
+      description_kk: description.kk,
+      description_en: description.en,
+      whoItSuits_ru: explanation.ru,
+      whoItSuits_kk: explanation.kk,
+      whoItSuits_en: explanation.en,
       icon: DIRECTION_ICONS[slug] ?? "compass"
     };
     await db.direction.upsert({
@@ -134,72 +228,91 @@ async function importDirections(workbook: XLSX.WorkBook) {
 }
 
 async function importProfessions(workbook: XLSX.WorkBook) {
-  const rows = sheetRows(workbook, SHEETS.professions);
-  const directions = new Map((await db.direction.findMany()).map((direction) => [direction.slug, direction.id]));
-  const directionSlugById = new Map((await db.direction.findMany()).map((direction) => [direction.id, direction.slug]));
+  const sheet = localised(workbook, "профессии");
+  const directions = await db.direction.findMany();
+  const directionIdBySlug = new Map(directions.map((direction) => [direction.slug, direction.id]));
+  const directionSlugById = new Map(directions.map((direction) => [direction.id, direction.slug]));
   const slugs: string[] = [];
   const taken = new Set<string>();
   const unmatchedDirections = new Set<string>();
   const duplicates: string[] = [];
   let numericSalaries = 0;
 
-  for (const row of rows) {
-    const name = text(row["Профессия"]);
-    const directionName = text(row["Направление"]);
-    if (!name) continue;
-    const directionId = directions.get(directionSlug(directionName));
+  for (const [index, row] of sheet.ru.rows.entries()) {
+    const name = texts(cell(sheet, index, PROFESSION.name));
+    const directionName = text(row[PROFESSION.direction]);
+    if (!name.ru) continue;
+    const directionId = directionIdBySlug.get(directionSlug(directionName));
     if (!directionId) {
       unmatchedDirections.add(directionName);
       continue;
     }
+    checkRowShape("Профессии", sheet, index, name.ru);
 
     // The same profession name appears under more than one direction; the
     // direction is appended so neither row overwrites the other.
-    const baseSlug = slugify(name);
+    const baseSlug = slugify(name.ru);
     let slug = baseSlug;
     if (taken.has(slug)) {
       slug = `${baseSlug}-${directionSlugById.get(directionId) ?? "direction"}`;
-      duplicates.push(`${name} (${directionName.trim()})`);
+      duplicates.push(`${name.ru} (${directionName})`);
     }
     for (let suffix = 2; taken.has(slug); suffix += 1) slug = `${baseSlug}-${suffix}`;
     taken.add(slug);
 
-    const description = text(row["Чем занимается"]);
-    const salary = parseSalaryLevel(row["Средняя зарплата"]);
-    const salaryAverage = parseSalaryAmount(row["Средняя зарплата"]);
+    const description = texts(cell(sheet, index, PROFESSION.whatTheyDo));
+    const salaryCell = cell(sheet, index, PROFESSION.salary);
+    const salary = parseSalaryLevel(salaryCell.ru);
+    const salaryLabel = optionals(salaryCell);
+    const salaryAverage = parseSalaryAmount(salaryCell.ru);
     if (salaryAverage !== null) numericSalaries += 1;
-    const demand = parseDemand(row["Востребованность"]);
-    const pros = splitList(row["Плюсы"]);
-    const cons = splitList(row["Минусы"]);
+    const demandCell = cell(sheet, index, PROFESSION.demand);
+    const demand = parseDemand(demandCell.ru);
+    const pros = lists(cell(sheet, index, PROFESSION.pros));
+    const cons = lists(cell(sheet, index, PROFESSION.cons));
+    const skills = lists(cell(sheet, index, PROFESSION.skills));
+    const subjects = lists(cell(sheet, index, PROFESSION.subjects));
+    // Specialties are English names in every tab; a Russian cell left blank can
+    // take the value its translations state.
+    const specialtyCells = lists(cell(sheet, index, PROFESSION.specialties));
+    const specialties = specialtyCells.ru.length > 0 ? specialtyCells.ru : specialtyCells.en;
 
     const data = {
       directionId,
-      name_ru: name,
-      name_kk: "",
-      name_en: "",
-      shortDescription_ru: description,
-      shortDescription_kk: "",
-      shortDescription_en: "",
-      whatTheyDo_ru: description,
-      whatTheyDo_kk: "",
-      whatTheyDo_en: "",
+      name_ru: name.ru,
+      name_kk: name.kk,
+      name_en: name.en,
+      shortDescription_ru: description.ru,
+      shortDescription_kk: description.kk,
+      shortDescription_en: description.en,
+      whatTheyDo_ru: description.ru,
+      whatTheyDo_kk: description.kk,
+      whatTheyDo_en: description.en,
       salaryMin: null,
       salaryMax: null,
       salaryAverage,
-      salaryLabel: salary.label,
+      salaryLabel: salaryLabel.ru,
+      salaryLabel_kk: salaryLabel.kk,
+      salaryLabel_en: salaryLabel.en,
       salaryRank: salary.rank,
       demand: demand.demand,
       demandLabel: demand.label,
+      demandLabel_kk: sentenceCase(optionalText(demandCell.kk)),
+      demandLabel_en: sentenceCase(optionalText(demandCell.en)),
       demandRank: demand.rank,
-      specialties: splitList(row["Специальности"]),
-      pros_ru: pros,
-      pros_kk: [],
-      pros_en: [],
-      cons_ru: cons,
-      cons_kk: [],
-      cons_en: [],
-      skills: splitList(row["Навыки"]),
-      schoolSubjects: splitList(row["Предметы"]),
+      specialties,
+      pros_ru: pros.ru,
+      pros_kk: pros.kk,
+      pros_en: pros.en,
+      cons_ru: cons.ru,
+      cons_kk: cons.kk,
+      cons_en: cons.en,
+      skills: skills.ru,
+      skills_kk: skills.kk,
+      skills_en: skills.en,
+      schoolSubjects: subjects.ru,
+      schoolSubjects_kk: subjects.kk,
+      schoolSubjects_en: subjects.en,
       careerLadder: [] as Prisma.InputJsonValue
     };
 
@@ -213,91 +326,133 @@ async function importProfessions(workbook: XLSX.WorkBook) {
   return {imported: slugs.length, removed: removed.count, numericSalaries};
 }
 
-/** Fills each direction's skills and subjects from the professions it contains. */
+/** Fills each direction's skills and subjects, per language, from the professions it contains. */
 async function summariseDirections() {
   const directions = await db.direction.findMany({include: {professions: true}});
   for (const direction of directions) {
+    const professions = direction.professions;
     await db.direction.update({
       where: {id: direction.id},
       data: {
-        skills: topValues(direction.professions.flatMap((profession) => profession.skills), 8),
-        schoolSubjects: topValues(direction.professions.flatMap((profession) => profession.schoolSubjects), 6)
+        skills: topValues(professions.flatMap((profession) => profession.skills), 8),
+        skills_kk: topValues(professions.flatMap((profession) => profession.skills_kk), 8),
+        skills_en: topValues(professions.flatMap((profession) => profession.skills_en), 8),
+        schoolSubjects: topValues(professions.flatMap((profession) => profession.schoolSubjects), 6),
+        schoolSubjects_kk: topValues(professions.flatMap((profession) => profession.schoolSubjects_kk), 6),
+        schoolSubjects_en: topValues(professions.flatMap((profession) => profession.schoolSubjects_en), 6)
       }
     });
   }
 }
 
 async function importUniversities(workbook: XLSX.WorkBook) {
-  const rows = sheetRows(workbook, SHEETS.universities);
-  const contacts = new Map(sheetRows(workbook, SHEETS.contacts).map((row) => [matchKey(row["Университет"]), row]));
-  const admissions = new Map(sheetRows(workbook, SHEETS.admission).map((row) => [matchKey(row["Университет"]), row]));
+  const sheet = localised(workbook, "университеты");
+  const admissions = localised(workbook, "поступление");
+  const contactRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(findTab(workbook, "контакты университетов"), {
+    defval: ""
+  });
+  const contacts = new Map(contactRows.map((row) => [matchKey(row["Университет"]), row]));
+
+  // Admission rows join a university by its Russian name; the translations of a
+  // row are the rows at the same position in the other two tabs.
+  const admissionRow = new Map(admissions.ru.rows.map((row, index) => [matchKey(row[ADMISSION.university]), index]));
+  const legacyColumn = Object.fromEntries(
+    Object.entries(LEGACY_ADMISSION).map(([field, header]) => [
+      field,
+      admissions.ru.header.findIndex((candidate) => matchKey(candidate) === matchKey(header))
+    ])
+  ) as Record<keyof typeof LEGACY_ADMISSION, number>;
+  const droppedColumns = Object.entries(LEGACY_ADMISSION)
+    .filter(([field]) => legacyColumn[field as keyof typeof LEGACY_ADMISSION] === -1)
+    .map(([, header]) => header);
+  if (droppedColumns.length > 0) {
+    warn(
+      `Поступление has no ${droppedColumns.join(", ")} column — the values already stored for them were kept, not cleared.`
+    );
+  }
+
   const usedContacts = new Set<string>();
   const usedAdmissions = new Set<string>();
-
   const slugs: string[] = [];
   let withAdmission = 0;
   let withContacts = 0;
   let withTuition = 0;
   let withRating = 0;
 
-  for (const row of rows) {
-    const name = text(row["Название"]);
-    if (!name) continue;
-    const slug = slugify(name);
-    const key = matchKey(name);
+  for (const [index] of sheet.ru.rows.entries()) {
+    const name = texts(cell(sheet, index, UNIVERSITY.name));
+    if (!name.ru) continue;
+    checkRowShape("Университеты", sheet, index, name.ru);
+    const slug = slugify(name.ru);
+    const key = matchKey(name.ru);
     const contact = contacts.get(key);
-    const admission = admissions.get(key);
     if (contact) usedContacts.add(key);
-    if (admission) usedAdmissions.add(key);
 
-    const tuition = parseTuition(row["стоимость/год"]);
-    const rating = parseRating(row["рейтинг"]);
-    const fields = optionalText(row["осн. направления"]);
+    const tuitionCell = cell(sheet, index, UNIVERSITY.tuition);
+    const tuition = parseTuition(tuitionCell.ru, [tuitionCell.en, tuitionCell.kk]);
+    const tuitionNote = optionals(tuitionCell);
+    const ratingCell = cell(sheet, index, UNIVERSITY.rating);
+    const rating = parseRating(ratingCell.ru);
+    const ratingLabel = optionals(ratingCell);
+    const fields = texts(cell(sheet, index, UNIVERSITY.mainFields));
+    const country = texts(cell(sheet, index, UNIVERSITY.country));
+    const city = texts(cell(sheet, index, UNIVERSITY.city));
     if (tuition.min !== null) withTuition += 1;
     if (rating.label) withRating += 1;
 
     const data = {
-      name_ru: name,
-      name_kk: "",
-      name_en: "",
-      country: text(row["страна"]) || "Казахстан",
-      city: text(row["город"]),
+      name_ru: name.ru,
+      name_kk: name.kk,
+      name_en: name.en,
+      country: country.ru || "Казахстан",
+      country_kk: country.kk,
+      country_en: country.en,
+      city: city.ru,
+      city_kk: city.kk,
+      city_en: city.en,
       rating: rating.rating,
       ratingLabel: rating.label,
+      ratingLabel_kk: ratingLabel.kk,
+      ratingLabel_en: ratingLabel.en,
       tuitionMin: tuition.min,
       tuitionMax: tuition.max,
       tuitionCurrency: tuition.currency,
       tuitionNote: tuition.note,
+      tuitionNote_kk: tuitionNote.kk,
+      tuitionNote_en: tuitionNote.en,
       website: optionalText(contact?.["Cайт"]),
       email: optionalText(contact?.["email"]),
       phone: optionalText(contact?.["Телефон"]),
       address: null,
-      description_ru: fields ?? "",
-      description_kk: "",
-      description_en: ""
+      description_ru: fields.ru,
+      description_kk: fields.kk,
+      description_en: fields.en
     };
 
     const university = await db.university.upsert({where: {slug}, update: data, create: {...data, slug}});
     slugs.push(slug);
     if (contact) withContacts += 1;
 
-    const admissionData = {
-      exams: optionalText(admission?.["Экзамены"]),
-      ielts: optionalText(admission?.["IELTS"]),
-      sat: optionalText(admission?.["SAT"]),
-      grants: optionalText(admission?.["Гранты"]),
-      deadline: optionalText(admission?.["Дедлайн"])
-    };
-    const hasAdmission = Object.values(admissionData).some((value) => value !== null);
-    if (hasAdmission) {
-      withAdmission += 1;
-      await db.admission.upsert({
+    const row = admissionRow.get(key);
+    if (row !== undefined) usedAdmissions.add(key);
+    const exams = row === undefined ? {ru: null, kk: null, en: null} : optionals(cell(admissions, row, ADMISSION.exams));
+    const admissionData: Prisma.AdmissionUpdateInput = {exams: exams.ru, exams_kk: exams.kk, exams_en: exams.en};
+    for (const field of Object.keys(LEGACY_ADMISSION) as (keyof typeof LEGACY_ADMISSION)[]) {
+      const column = legacyColumn[field];
+      if (column !== -1) admissionData[field] = row === undefined ? null : optionalText(admissions.ru.rows[row][column]);
+    }
+
+    const existing = await db.admission.findUnique({where: {universityId: university.id}});
+    const stated = Object.values(admissionData).some((value) => value !== null);
+    if (stated || existing) {
+      const saved = await db.admission.upsert({
         where: {universityId: university.id},
         update: admissionData,
-        create: {...admissionData, universityId: university.id}
+        create: {...(admissionData as Prisma.AdmissionUncheckedCreateInput), universityId: university.id}
       });
-    } else {
-      await db.admission.deleteMany({where: {universityId: university.id}});
+      const kept = saved.exams ?? saved.ielts ?? saved.sat ?? saved.grants ?? saved.deadline;
+      if (kept !== null) withAdmission += 1;
+      else if (droppedColumns.length === 0) await db.admission.delete({where: {id: saved.id}});
     }
   }
 
@@ -305,13 +460,23 @@ async function importUniversities(workbook: XLSX.WorkBook) {
     if (key === "") warn("Contacts sheet contains a blank row.");
     else if (!usedContacts.has(key)) warn(`Contacts row "${key}" matches no university.`);
   }
-  for (const key of admissions.keys()) {
-    if (key === "") warn("Admission sheet contains a blank row.");
-    else if (!usedAdmissions.has(key)) warn(`Admission row "${key}" matches no university.`);
+  for (const key of admissionRow.keys()) {
+    if (key !== "" && !usedAdmissions.has(key)) warn(`Admission row "${key}" matches no university.`);
   }
 
   const removed = await db.university.deleteMany({where: {slug: {notIn: slugs}}});
   return {imported: slugs.length, removed: removed.count, withAdmission, withContacts, withTuition, withRating};
+}
+
+function requirements(admission: Admission | null, lang: Lang): string {
+  const exams = lang === "ru" ? admission?.exams : (admission?.[`exams_${lang}`] ?? admission?.exams);
+  return [
+    exams ? `${REQUIREMENT_LABEL[lang]}: ${exams}` : null,
+    admission?.ielts ? `IELTS: ${admission.ielts}` : null,
+    admission?.sat ? `SAT: ${admission.sat}` : null
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }
 
 /**
@@ -325,7 +490,7 @@ async function importUniversities(workbook: XLSX.WorkBook) {
  * guessed.
  */
 async function importPrograms(workbook: XLSX.WorkBook) {
-  const rows = sheetRows(workbook, SHEETS.universities);
+  const sheet = localised(workbook, "университеты");
   const directions = new Map((await db.direction.findMany()).map((direction) => [direction.slug, direction]));
   const universities = new Map((await db.university.findMany({include: {admission: true}})).map((item) => [item.slug, item]));
   const professions = await db.profession.findMany();
@@ -334,24 +499,16 @@ async function importPrograms(workbook: XLSX.WorkBook) {
   const unmatchedTokens = new Set<string>();
   let professionLinks = 0;
 
-  for (const row of rows) {
-    const name = text(row["Название"]);
+  for (const row of sheet.ru.rows) {
+    const name = text(row[UNIVERSITY.name]);
     if (!name) continue;
     const university = universities.get(slugify(name));
     if (!university) continue;
 
-    const admission = university.admission;
-    const requirements = [
-      admission?.exams ? `Экзамены: ${admission.exams}` : null,
-      admission?.ielts ? `IELTS: ${admission.ielts}` : null,
-      admission?.sat ? `SAT: ${admission.sat}` : null
-    ]
-      .filter((line): line is string => line !== null)
-      .join("\n");
+    const requirement = Object.fromEntries(LANGS.map((lang) => [lang, requirements(university.admission, lang)])) as Triple<string>;
+    const tokens = specialtyTokens(row[UNIVERSITY.mainFields]);
 
-    const tokens = specialtyTokens(row["осн. направления"]);
-
-    for (const token of splitList(row["Направления"])) {
+    for (const token of splitList(row[UNIVERSITY.directions])) {
       const direction = directions.get(directionSlug(token));
       if (!direction) {
         unmatchedTokens.add(token);
@@ -364,11 +521,11 @@ async function importPrograms(workbook: XLSX.WorkBook) {
         directionId: direction.id,
         professionId: null,
         name_ru: direction.name_ru,
-        name_kk: "",
-        name_en: "",
-        requirements_ru: requirements,
-        requirements_kk: "",
-        requirements_en: "",
+        name_kk: direction.name_kk,
+        name_en: direction.name_en,
+        requirements_ru: requirement.ru,
+        requirements_kk: requirement.kk,
+        requirements_en: requirement.en,
         tuitionCost: null
       };
       await db.program.upsert({
@@ -383,17 +540,18 @@ async function importPrograms(workbook: XLSX.WorkBook) {
         const specialty = profession.specialties.find((value) => tokens.has(matchKey(value)));
         if (!specialty) continue;
 
+        // Specialty names are English in every tab, so the program name is too.
         const professionKey = `${university.slug}:${direction.slug}:${profession.slug}`;
         const professionData = {
           universityId: university.id,
           directionId: direction.id,
           professionId: profession.id,
           name_ru: specialty,
-          name_kk: "",
-          name_en: "",
-          requirements_ru: requirements,
-          requirements_kk: "",
-          requirements_en: "",
+          name_kk: specialty,
+          name_en: specialty,
+          requirements_ru: requirement.ru,
+          requirements_kk: requirement.kk,
+          requirements_en: requirement.en,
           tuitionCost: null
         };
         await db.program.upsert({
@@ -413,28 +571,30 @@ async function importPrograms(workbook: XLSX.WorkBook) {
 }
 
 async function importTest(workbook: XLSX.WorkBook) {
-  const rows = sheetRows(workbook, SHEETS.tests);
+  const sheet = localised(workbook, "тест");
   const questionKeys: string[] = [];
   const optionKeys: string[] = [];
   const unmatchedArchetypes = new Set<string>();
   let weighted = 0;
 
-  for (const [index, row] of rows.entries()) {
-    const questionText = text(row["Вопрос"]);
-    if (!questionText) continue;
+  for (const [index] of sheet.ru.rows.entries()) {
+    const question = texts(cell(sheet, index, TEST.question), inlineText);
+    if (!question.ru) continue;
     const order = index + 1;
-    const block = text(row["Тип теста"]);
+    const block = texts(cell(sheet, index, TEST.block));
     const sourceKey = `q-${order}`;
 
     const questionData = {
       order,
-      block,
-      text_ru: questionText,
-      text_kk: "",
-      text_en: "",
-      category: categoryForBlock(block)
+      block: block.ru,
+      block_kk: block.kk,
+      block_en: block.en,
+      text_ru: question.ru,
+      text_kk: question.kk,
+      text_en: question.en,
+      category: categoryForBlock(block.ru)
     };
-    const question = await db.question.upsert({
+    const saved = await db.question.upsert({
       where: {sourceKey},
       update: questionData,
       create: {...questionData, sourceKey}
@@ -442,20 +602,24 @@ async function importTest(workbook: XLSX.WorkBook) {
     questionKeys.push(sourceKey);
 
     for (const letter of ["A", "B", "C", "D"] as const) {
-      const optionText = text(row[letter]);
-      if (!optionText) continue;
-      const archetype = text(row[`${letter} - направление`]);
-      const weights = weightsForArchetype(archetype);
-      if (!weights) unmatchedArchetypes.add(archetype);
+      const option = texts(cell(sheet, index, TEST.options[letter]), inlineText);
+      if (!option.ru) continue;
+      // The Russian archetype is the key the direction weights are defined by;
+      // the translations are only its label.
+      const archetype = texts(cell(sheet, index, TEST.archetypes[letter]));
+      const weights = weightsForArchetype(archetype.ru);
+      if (!weights) unmatchedArchetypes.add(archetype.ru);
       else weighted += 1;
 
       const optionKey = `${sourceKey}-${letter}`;
       const optionData = {
-        questionId: question.id,
-        archetype,
-        text_ru: optionText,
-        text_kk: "",
-        text_en: "",
+        questionId: saved.id,
+        archetype: archetype.ru,
+        archetype_kk: archetype.kk,
+        archetype_en: archetype.en,
+        text_ru: option.ru,
+        text_kk: option.kk,
+        text_en: option.en,
         weights: (weights ?? {}) as Prisma.InputJsonValue
       };
       await db.option.upsert({
@@ -503,16 +667,7 @@ async function verify() {
 
   console.log("\nDatabase after import");
   console.log("─".repeat(64));
-  console.table({
-    directions,
-    professions,
-    universities,
-    programs,
-    admissions,
-    questions,
-    options,
-    reviews
-  });
+  console.table({directions, professions, universities, programs, admissions, questions, options, reviews});
 
   console.log("\nPer direction");
   console.table(
@@ -528,6 +683,32 @@ async function verify() {
 
   console.log("\nUniversities by country");
   console.table(countries.map((entry) => ({country: entry.country, universities: entry._count._all})));
+
+  // A missing translation still renders (the Russian value is shown), so it is
+  // reported for the translators rather than failing the import.
+  console.log("\nMissing translations (the Russian value is shown instead)");
+  console.table({
+    directions: {
+      kk: await db.direction.count({where: {name_kk: ""}}),
+      en: await db.direction.count({where: {name_en: ""}})
+    },
+    professions: {
+      kk: await db.profession.count({where: {name_kk: ""}}),
+      en: await db.profession.count({where: {name_en: ""}})
+    },
+    universities: {
+      kk: await db.university.count({where: {name_kk: ""}}),
+      en: await db.university.count({where: {name_en: ""}})
+    },
+    questions: {
+      kk: await db.question.count({where: {text_kk: ""}}),
+      en: await db.question.count({where: {text_en: ""}})
+    },
+    options: {
+      kk: await db.option.count({where: {text_kk: ""}}),
+      en: await db.option.count({where: {text_en: ""}})
+    }
+  });
 
   const issues: string[] = [];
   if (optionsWithoutWeights > 0) issues.push(`${optionsWithoutWeights} answer options carry no direction weights`);
@@ -569,11 +750,7 @@ async function main() {
   );
   console.log(`Programs linked to a specific profession: ${programs.professionLinks}`);
   console.log(`Answer options with direction weights: ${test.weighted}/${test.options}`);
-  console.log(
-    professions.numericSalaries === 0
-      ? "Numeric salaries in the source: none — the sheet records pay as a level, so salary figures stay empty."
-      : `Professions with a numeric salary: ${professions.numericSalaries}`
-  );
+  console.log(`Professions with a salary figure: ${professions.numericSalaries}/${professions.imported}`);
 
   const issues = await verify();
 

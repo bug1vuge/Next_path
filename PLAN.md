@@ -161,3 +161,22 @@ following decisions were made and are reflected in the schema, the importer and
 - **Idempotency.** `Program`, `Question` and `Option` gained a unique
   `sourceKey`; every import upserts by a stable key and deletes rows that
   disappeared from the sheet.
+
+---
+
+## Translated sheet (2026-09-13)
+
+The team published a new sheet with a Russian, Kazakh and English tab for every
+sheet. It supersedes the earlier "Russian content only" and "no salary figures"
+decisions above; `README.md` describes the current import.
+
+- **Catalogue is trilingual.** Rows are paired across the three tabs by position
+  and the import refuses to run when their row counts differ. Fields that were
+  Russian-only gained `_kk` / `_en` columns through an additive migration, so the
+  live database stayed readable before the re-import.
+- **Salaries are figures** (`800 000 ₸`) and sort by amount.
+- **Admission lost its IELTS, SAT, Гранты and Дедлайн columns.** The stored values
+  are kept rather than cleared; they stay Russian-only until the sheet has them again.
+- **Source wording is not edited.** Typos found in the test questions were
+  reported to the team to fix in the sheet; only whitespace inside test text and
+  label casing are normalised on import.

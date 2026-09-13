@@ -1,5 +1,5 @@
 /**
- * Parsers for the Russian source spreadsheet.
+ * Parsers for the source spreadsheet.
  *
  * Rule for every function here: when a source value cannot be understood with
  * confidence it returns `null`. Nothing is guessed, rounded up, converted
@@ -14,10 +14,33 @@ export function text(value: unknown): string {
   return String(value).replace(/ /g, " ").replace(/\s+\n/g, "\n").trim();
 }
 
-/** Non-empty source text, or `null` when the cell is blank. */
+/**
+ * Non-empty source text, or `null` when the cell is blank. A cell holding only a
+ * dash is the sheet's way of saying "nothing here", so it counts as blank too.
+ */
 export function optionalText(value: unknown): string | null {
   const result = text(value);
-  return result.length > 0 ? result : null;
+  return result.length > 0 && !/^[-–—]+$/.test(result) ? result : null;
+}
+
+/**
+ * Text shown inside a single sentence — test questions and answers. Line breaks
+ * typed inside a spreadsheet cell and doubled spaces are layout artefacts that
+ * would otherwise split a sentence mid-line; the wording itself is untouched.
+ */
+export function inlineText(value: unknown): string {
+  return text(value).replace(/\s*\n\s*/g, " ").replace(/ {2,}/g, " ");
+}
+
+/**
+ * Categorical labels ("Очень Высокая", "Очень высокая") differ only in casing
+ * across rows. Left as-is they become two separate filter options for the same
+ * level, so the casing is made consistent; the words are not changed.
+ */
+export function sentenceCase(value: string | null): string | null {
+  if (!value) return value;
+  const lower = value.toLocaleLowerCase();
+  return lower.charAt(0).toLocaleUpperCase() + lower.slice(1);
 }
 
 export function slugify(value: string): string {
@@ -48,7 +71,7 @@ const DEMAND_RANKS: [RegExp, Demand, number][] = [
 ];
 
 export function parseDemand(value: unknown): {demand: Demand; label: string | null; rank: number | null} {
-  const label = optionalText(value);
+  const label = sentenceCase(optionalText(value));
   if (!label) return {demand: "MEDIUM", label: null, rank: null};
   for (const [pattern, demand, rank] of DEMAND_RANKS) {
     if (pattern.test(label)) return {demand, label, rank};
@@ -57,9 +80,10 @@ export function parseDemand(value: unknown): {demand: Demand; label: string | nu
 }
 
 /**
- * The source records pay as a qualitative level ("Высокая", "Средняя/Высокая"),
- * never as a number, so no salary figure can be derived. The label is kept
- * verbatim and ranked only so the catalogue can sort by it.
+ * Older revisions of the sheet recorded pay as a level ("Высокая",
+ * "Средняя/Высокая"); the current one records a figure ("800 000 ₸"). A level is
+ * kept verbatim and ranked only so the catalogue can sort by it — no amount is
+ * ever derived from a word.
  */
 export function parseSalaryLevel(value: unknown): {label: string | null; rank: number | null} {
   const label = optionalText(value);
@@ -85,7 +109,8 @@ const CURRENCY_PATTERNS: [RegExp, string][] = [
   [/\bCAD\b/i, "CAD"],
   [/\bSGD\b/i, "SGD"],
   [/\bAUD\b/i, "AUD"],
-  [/тг|тенге|₸/i, "KZT"],
+  [/\bCHF\b/i, "CHF"],
+  [/тг|тенге|₸|\bKZT\b/i, "KZT"],
   [/[£]/, "GBP"],
   [/[€]/, "EUR"],
   [/[$]|\bUSD\b/i, "USD"]
@@ -105,13 +130,22 @@ export type Tuition = {min: number | null; max: number | null; currency: string 
  * Only the first currency segment is parsed — trailing clauses about
  * international students describe a different price and are left in `note`.
  * Values are never converted between currencies.
+ *
+ * `translations` are the same cell from the Kazakh and English tabs. When the
+ * Russian cell omits its currency ("700000-1770000") but a translation of that
+ * very cell names it ("700,000-1,770,000 KZT"), the currency is taken from the
+ * translation — the source stating it, not a guess.
  */
-export function parseTuition(value: unknown): Tuition {
+export function parseTuition(value: unknown, translations: unknown[] = []): Tuition {
   const note = optionalText(value);
   if (!note) return {min: null, max: null, currency: null, note: null};
 
   const segment = note.split("/").find((part) => /\d/.test(part)) ?? note;
-  const currency = detectCurrency(segment) ?? detectCurrency(note);
+  const currency =
+    detectCurrency(segment) ??
+    detectCurrency(note) ??
+    translations.map((translation) => detectCurrency(text(translation))).find((code) => code !== null) ??
+    null;
   const millions = /млн/i.test(segment);
   const scale = millions ? 1_000_000 : 1;
 

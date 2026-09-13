@@ -3,13 +3,12 @@ import {notFound} from "next/navigation";
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import {ProfessionCard, UniversityCard, type ProfessionCardData} from "@/components/catalog/cards";
 import {buttonClass, chipClass} from "@/components/ui/button";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {FavouriteButton} from "@/components/ui/favourite-button";
 import {PageHeader, Section} from "@/components/ui/page-header";
 import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {getDirection} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {localizedText, localizedValue, localizedValues} from "@/lib/content";
 import {formatMoneyRange} from "@/lib/format";
 import type {Locale} from "@/lib/locales";
 
@@ -26,6 +25,8 @@ export default async function DirectionPage({params}: {params: Promise<{locale: 
   const name = localizedText(direction, "name", locale);
   const description = localizedText(direction, "description", locale);
   const whoItSuits = localizedText(direction, "whoItSuits", locale);
+  const skills = localizedValues(direction, "skills", locale);
+  const subjects = localizedValues(direction, "schoolSubjects", locale);
 
   const professions: ProfessionCardData[] = direction.professions.map((profession) => ({
     slug: profession.slug,
@@ -33,9 +34,9 @@ export default async function DirectionPage({params}: {params: Promise<{locale: 
     description: localizedText(profession, "shortDescription", locale),
     directionSlug: direction.slug,
     directionName: name,
-    salaryLabel: profession.salaryLabel,
-    demandLabel: profession.demandLabel,
-    skills: profession.skills
+    salaryLabel: localizedValue(profession, "salaryLabel", locale),
+    demandLabel: localizedValue(profession, "demandLabel", locale),
+    skills: localizedValues(profession, "skills", locale)
   }));
 
   // One card per university, from the Program rows of this direction.
@@ -49,9 +50,9 @@ export default async function DirectionPage({params}: {params: Promise<{locale: 
     universities.set(program.university.slug, {
       slug: program.university.slug,
       name: localizedText(program.university, "name", locale),
-      country: program.university.country,
-      city: program.university.city,
-      ratingLabel: program.university.ratingLabel,
+      country: localizedValue(program.university, "country", locale),
+      city: localizedValue(program.university, "city", locale),
+      ratingLabel: localizedValue(program.university, "ratingLabel", locale),
       tuition: formatMoneyRange(
         program.university.tuitionMin,
         program.university.tuitionMax,
@@ -78,7 +79,6 @@ export default async function DirectionPage({params}: {params: Promise<{locale: 
         title={name}
         description={description}
       />
-      <ContentNotice locale={locale} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         {whoItSuits ? (
@@ -88,11 +88,11 @@ export default async function DirectionPage({params}: {params: Promise<{locale: 
           </article>
         ) : null}
         <article className="rounded-3xl border border-border bg-surface p-6">
-          {direction.skills.length > 0 ? (
+          {skills.length > 0 ? (
             <>
               <h2 className="text-sm font-bold text-muted uppercase">{tCommon("skills")}</h2>
               <ul className="mt-3 flex flex-wrap gap-2">
-                {direction.skills.map((skill) => (
+                {skills.map((skill) => (
                   <li className={chipClass} key={skill}>
                     {skill}
                   </li>
@@ -100,11 +100,11 @@ export default async function DirectionPage({params}: {params: Promise<{locale: 
               </ul>
             </>
           ) : null}
-          {direction.schoolSubjects.length > 0 ? (
+          {subjects.length > 0 ? (
             <>
               <h2 className="mt-5 text-sm font-bold text-muted uppercase">{tCommon("subjects")}</h2>
               <ul className="mt-3 flex flex-wrap gap-2">
-                {direction.schoolSubjects.map((subject) => (
+                {subjects.map((subject) => (
                   <li className={chipClass} key={subject}>
                     {subject}
                   </li>
@@ -112,7 +112,7 @@ export default async function DirectionPage({params}: {params: Promise<{locale: 
               </ul>
             </>
           ) : null}
-          {direction.skills.length === 0 && direction.schoolSubjects.length === 0 ? (
+          {skills.length === 0 && subjects.length === 0 ? (
             <p className="text-sm text-muted">{tCommon("notSpecified")}</p>
           ) : null}
         </article>

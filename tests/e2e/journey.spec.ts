@@ -136,16 +136,23 @@ test("the interface switches fully to Kazakh", async ({page}) => {
   await page.getByRole("button", {name: kk.test.start}).click();
   await expect(page.getByText(kk.test.chooseOption)).toBeVisible();
 
-  // Catalogue content is Russian only, and the interface says so rather than
-  // pretending it is translated.
+  // The catalogue itself is translated, not only the interface chrome: the
+  // direction cards read in Kazakh, and in English they carry no Cyrillic at all.
   await page.goto("/kk/directions");
   await expect(page.getByRole("heading", {level: 1, name: kk.directions.title})).toBeVisible();
-  await expect(page.getByText(kk.common.contentLanguageNotice)).toBeVisible();
+  const kazakhCards = await page.getByRole("heading", {level: 3}).allTextContents();
+  expect(kazakhCards.length).toBeGreaterThan(0);
+  expect(kazakhCards.some((name) => /[ӘәҒғҚқҢңӨөҰұҮүҺһІі]/.test(name))).toBe(true);
 
   const chrome = (await page.getByRole("banner").textContent()) ?? "";
   expect(chrome).toContain(kk.navigation.universities);
   expect(chrome).not.toContain(ru.navigation.universities);
   expect(chrome).not.toContain("Universities");
+
+  await page.goto("/en/directions");
+  const englishCards = await page.getByRole("heading", {level: 3}).allTextContents();
+  expect(englishCards.length).toBeGreaterThan(0);
+  expect(englishCards.filter((name) => /[А-Яа-яЁё]/.test(name))).toEqual([]);
 });
 
 test("the mobile layout never overflows sideways", async ({page}) => {

@@ -59,31 +59,42 @@ corepack pnpm@9.15.4 dev                 # http://localhost:3000/ru
 
 The catalogue is maintained by the team in a Google Sheet and imported with `pnpm db:import:sheet`. The importer is **idempotent**: every row is addressed by a stable key derived from the source, so re-running updates rows instead of duplicating them, and rows removed from the sheet are removed from the database. It prints a per-entity summary, a per-direction breakdown, source warnings and any consistency issues, and exits non-zero when an issue is found.
 
-Sheet tabs and the columns the importer reads:
+Every sheet exists three times — a `рус`, a `каз` and an `англ` tab — listing the same rows in the same order under translated headers. The importer therefore pairs rows across languages **by position** and reads columns **by position**, so the column order below is the contract. Tab names are matched loosely (case, stray spaces and the `Професии` / `Направление` spellings the sheet uses are all accepted). The Russian tab supplies identity and every number; the translations supply text.
 
-| Tab | Columns |
+**The importer refuses to run when the three tabs of a sheet differ in row count** — a single missing row would otherwise pair every later row with the wrong translation. It also warns when a Russian row has fewer filled cells than its translations, which usually means a value sits in the wrong column.
+
+| Sheet (`… рус` / `… каз` / `… англ`) | Columns, in order |
 | --- | --- |
-| `Тесты` | `Вопрос`, `A`–`D`, `A - направление`–`D - направление`, `Тип теста` |
-| `Направления` | `Направление`, `Описание` |
-| `Направления объяснение ` | `Направление`, `Объяснение` |
-| `Профессии` | `Направление`, `Профессия`, `Чем занимается`, `Средняя зарплата`, `Востребованность`, `Плюсы`, `Минусы`, `Предметы`, `Навыки`, `Специальности` |
-| `Университеты` | `Название`, `страна`, `город`, `Направления`, `осн. направления`, `рейтинг`, `стоимость/год` |
-| `Поступление` | `Университет`, `Экзамены`, `IELTS`, `SAT`, `Гранты`, `Дедлайн` |
-| `Контакты университетов` | `Университет`, `email`, `Телефон`, `Cайт` |
+| `Тест` | question, answers A–D, archetype of A–D, block |
+| `Направления` | direction, description |
+| `Направления объяснение` | direction (English label), explanation |
+| `Профессии` | direction (English label), profession, what they do, salary, demand, pros, cons, subjects, skills, specialties |
+| `Университеты` | name, country, city, directions, main fields, rating, tuition / year |
+| `Поступление` | university, exams |
+| `Контакты университетов` *(one tab)* | `Университет`, `email`, `Телефон`, `Cайт` |
+
+Directions are keyed by their English label (`MEDICINE` → `medicine`), which the professions, explanations and universities sheets all use; the Russian tab names directions in Russian and only supplies the displayed name.
 
 ### Languages
 
-Interface chrome is translated into Russian, Kazakh and English (`messages/*.json`). **Catalogue content is Russian only** — that is the only language the source provides. The Kazakh and English database columns are written **empty** rather than filled with Russian text, so an empty column honestly means "not translated yet". Reads go through `lib/content.ts`, which falls back to the Russian source value, and the interface tells the reader when the content on screen is the untranslated Russian original.
+Both the interface (`messages/*.json`) and the catalogue are in Russian, Kazakh and English. Catalogue columns come in two shapes, each with its own reader in `lib/content.ts`:
+
+- fields localised from the start have a column per language — `name_ru`, `name_kk`, `name_en` — read with `localizedText` / `localizedList`;
+- fields that began Russian-only and gained translations later keep the Russian value in the unsuffixed column next to `_kk` / `_en` — `city`, `city_kk`, `city_en` — read with `localizedValue` / `localizedValues` / `localizedPlace`. For `country` and `city` the Russian value is also the key the filters put in the URL, so a filtered link works in every language.
+
+An empty translation falls back to the Russian value, so a cell the translators have not filled yet shows the original rather than a blank. The import prints how many rows are missing a Kazakh or English translation. The test's block and archetype stay keyed by their Russian labels — the direction weights and the career map's captions are defined on those — and their translations are display labels only.
 
 ### What is deliberately absent
 
 The importer never invents a value. Where the source is silent, the field stays `null` and the interface hides the block rather than showing a plausible-looking placeholder:
 
-- **Salaries.** The sheet records pay as a level ("Высокая", "Средняя/Высокая"), never as a figure. `salaryAverage` / `salaryMin` / `salaryMax` therefore stay empty; the level is preserved verbatim in `salaryLabel` and ranked in `salaryRank` for sorting only. No tenge amount is derived from a word.
+- **Salaries.** The sheet states a monthly figure (`800 000 ₸`), read into `salaryAverage` and kept verbatim in `salaryLabel`. A cell that describes pay in words ("сильно зависит от бизнеса") gets no figure — no tenge amount is ever derived from a word — and sorts after the figures. Earlier revisions recorded a level ("Высокая"); a level is still ranked in `salaryRank`, for sorting only.
 - **Ratings.** The sheet mixes world rankings (`166`, `401-500`), national positions (`топ-3`, `1(4)`) and spreadsheet artefacts. The label is kept verbatim in `ratingLabel`; the numeric `rating` is filled only for a single plausible world-ranking position, and universities are never sorted by rating across those different scales.
-- **Tuition.** Parsed with its currency (`KZT`, `USD`, `GBP`, `EUR`, `CAD`, `SGD`) into `tuitionMin` / `tuitionMax` / `tuitionCurrency`, with the raw cell kept in `tuitionNote`. Amounts are never converted between currencies; a cell that cannot be read confidently leaves the numbers empty and keeps only the note.
-- **Deadlines and grants** are stored as the source's own free text on `Admission`, field by field, and each field is omitted when the sheet leaves it blank.
+- **Tuition.** Parsed with its currency (`KZT`, `USD`, `GBP`, `EUR`, `CHF`, `CAD`, `SGD`) into `tuitionMin` / `tuitionMax` / `tuitionCurrency`, with the raw cell kept in `tuitionNote`. When the Russian cell omits the currency but the Kazakh or English version of that same cell names it, the currency is taken from there. Amounts are never converted between currencies; a cell that cannot be read confidently leaves the numbers empty and keeps only the note.
+- **Admission** is stored as the source's own free text on `Admission`, field by field. A cell holding only a dash counts as blank. The current sheet carries only `Экзамены`; the `IELTS`, `SAT`, `Гранты` and `Дедлайн` columns an earlier revision had are **kept as stored, not cleared** — an absent column says nothing about the data, unlike a blank cell — and the import says so. Those four are Russian-only until the sheet provides them again.
 - **Reviews** are never seeded or generated. The `Review` table stays empty and the interface shows its empty state.
+
+The wording itself is never edited — typos are fixed in the sheet and re-imported. Only layout artefacts are normalised: line breaks and doubled spaces typed inside a test question or answer (which would otherwise split the sentence on screen), and label casing ("Очень Высокая" / "Очень высокая"), which would otherwise appear as two separate filter options.
 
 ### Programs (profession ↔ university)
 
@@ -94,7 +105,7 @@ The importer never invents a value. Where the source is silent, the field stays 
 
 ### Test scoring
 
-The source questionnaire does not score the eight catalogue directions directly: each answer is tagged with one of twelve archetype labels across three blocks (`Личность`, `Интересы`, `Карьера`). The product needs a per-direction percentage, so `lib/test-mapping.ts` holds a single explicit table translating each archetype into direction weights. **That table is a product decision, not source data.** It is applied only when the importer writes `Option.weights`; `Option.archetype` keeps the raw source label. Re-tune the table and re-run `pnpm db:import:sheet` to change how results are computed.
+The source questionnaire does not score the eight catalogue directions directly: each answer is tagged with one of twelve archetype labels across three blocks (`Личность`, `Интересы`, `Карьера`), keyed by their Russian labels. The product needs a per-direction percentage, so `lib/test-mapping.ts` holds a single explicit table translating each archetype into direction weights. **That table is a product decision, not source data.** It is applied only when the importer writes `Option.weights`; `Option.archetype` keeps the raw source label. Re-tune the table and re-run `pnpm db:import:sheet` to change how results are computed.
 
 ---
 
@@ -204,9 +215,14 @@ CI check for translation parity.
 every question answered → results with non-zero percentages → top direction →
 a profession (salary level and demand rendered) → a university → favourites →
 admission plan → career path — then switches to Kazakh and asserts the interface
-chrome contains no Russian or English, and that the Russian-only catalogue is
-labelled as such rather than passed off as a translation. A third test checks
-that no page overflows horizontally at 375px.
+chrome contains no Russian or English, and that the catalogue itself is
+translated: Kazakh direction cards read in Kazakh, English ones carry no
+Cyrillic. A third test checks that no page overflows horizontally at 375px.
+
+`tests/unit/source-parsing.test.ts` covers the import rules — dash-only cells,
+sentences split across lines, label casing, salary figures versus words, and a
+tuition currency taken from a translation of the same cell;
+`tests/unit/content.test.ts` covers the language fallbacks.
 
 The Playwright config builds the app and starts it on port 3100. Install the
 browser once with `corepack pnpm@9.15.4 exec playwright install chromium`.

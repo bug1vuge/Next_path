@@ -2,12 +2,11 @@ import {getTranslations, setRequestLocale} from "next-intl/server";
 import {UniversityCard, type UniversityCardData} from "@/components/catalog/cards";
 import {Field, FilterPanel, NumberField, Select, TextField} from "@/components/catalog/filter-panel";
 import {buttonClass} from "@/components/ui/button";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {PageHeader} from "@/components/ui/page-header";
 import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {getDirections, getUniversities, getUniversityFacets} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {localizedText, localizedValue} from "@/lib/content";
 import {formatMoneyRange} from "@/lib/format";
 import type {Locale} from "@/lib/locales";
 
@@ -57,9 +56,9 @@ export default async function UniversitiesPage({
   const cards: UniversityCardData[] = items.map((university) => ({
     slug: university.slug,
     name: localizedText(university, "name", locale),
-    country: university.country,
-    city: university.city,
-    ratingLabel: university.ratingLabel,
+    country: localizedValue(university, "country", locale),
+    city: localizedValue(university, "city", locale),
+    ratingLabel: localizedValue(university, "ratingLabel", locale),
     tuition: formatMoneyRange(university.tuitionMin, university.tuitionMax, university.tuitionCurrency, locale),
     programCount: university._count.programs
   }));
@@ -67,7 +66,6 @@ export default async function UniversitiesPage({
   return (
     <div className="container-page pb-16">
       <PageHeader title={t("title")} description={t("subtitle")} />
-      <ContentNotice locale={locale} />
 
       <FilterPanel resetHref="/universities" summary={t("found", {count: cards.length})}>
         <Field label={tCommon("search")}>
@@ -76,7 +74,10 @@ export default async function UniversitiesPage({
         <Field label={t("filterCountry")}>
           <Select
             name="country"
-            options={facets.countries.map((entry) => ({value: entry.value, label: `${entry.value} (${entry.count})`}))}
+            options={facets.countries.map((entry) => ({
+              value: entry.value,
+              label: `${localizedValue(entry, "country", locale)} (${entry.count})`
+            }))}
             placeholder={tCommon("all")}
             value={filters.country}
           />
@@ -84,7 +85,7 @@ export default async function UniversitiesPage({
         <Field label={t("filterCity")}>
           <Select
             name="city"
-            options={facets.cities.map((entry) => ({value: entry.value, label: entry.value}))}
+            options={facets.cities.map((entry) => ({value: entry.value, label: localizedValue(entry, "city", locale)}))}
             placeholder={tCommon("all")}
             value={filters.city}
           />

@@ -4,13 +4,12 @@ import {getTranslations, setRequestLocale} from "next-intl/server";
 import {UniversityCard, type UniversityCardData} from "@/components/catalog/cards";
 import {BuildPathButton} from "@/components/catalog/build-path-button";
 import {buttonClass, chipClass} from "@/components/ui/button";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {FavouriteButton} from "@/components/ui/favourite-button";
 import {DefinitionList, definitions, PageHeader, Section} from "@/components/ui/page-header";
 import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {getProfession, getUniversitiesForProfession} from "@/lib/catalog";
-import {localizedList, localizedText} from "@/lib/content";
+import {localizedList, localizedText, localizedValue, localizedValues} from "@/lib/content";
 import {formatMoneyRange, formatNumber} from "@/lib/format";
 import type {Locale} from "@/lib/locales";
 
@@ -29,6 +28,10 @@ export default async function ProfessionPage({params}: {params: Promise<{locale:
   const name = localizedText(profession, "name", locale);
   const pros = localizedList(profession, "pros", locale);
   const cons = localizedList(profession, "cons", locale);
+  const skills = localizedValues(profession, "skills", locale);
+  const subjects = localizedValues(profession, "schoolSubjects", locale);
+  const salaryLabel = localizedValue(profession, "salaryLabel", locale);
+  const demandLabel = localizedValue(profession, "demandLabel", locale);
   const ladder = Array.isArray(profession.careerLadder) ? (profession.careerLadder as CareerStep[]) : [];
 
   const salaryRange = formatMoneyRange(profession.salaryMin, profession.salaryMax, "KZT", locale);
@@ -38,9 +41,9 @@ export default async function ProfessionPage({params}: {params: Promise<{locale:
   const cards: UniversityCardData[] = universities.map((university) => ({
     slug: university.slug,
     name: localizedText(university, "name", locale),
-    country: university.country,
-    city: university.city,
-    ratingLabel: university.ratingLabel,
+    country: localizedValue(university, "country", locale),
+    city: localizedValue(university, "city", locale),
+    ratingLabel: localizedValue(university, "ratingLabel", locale),
     tuition: formatMoneyRange(university.tuitionMin, university.tuitionMax, university.tuitionCurrency, locale),
     programCount: university.programs.length
   }));
@@ -48,13 +51,11 @@ export default async function ProfessionPage({params}: {params: Promise<{locale:
   const facts = definitions([
     salaryRange || salaryAverage
       ? {term: t("salaryLevel"), value: salaryRange ?? salaryAverage ?? ""}
-      : profession.salaryLabel
-        ? {term: t("salaryLevel"), value: profession.salaryLabel}
+      : salaryLabel
+        ? {term: t("salaryLevel"), value: salaryLabel}
         : null,
-    profession.demandLabel ? {term: t("demand"), value: profession.demandLabel} : null,
-    profession.schoolSubjects.length > 0
-      ? {term: tCommon("subjects"), value: profession.schoolSubjects.join(", ")}
-      : null,
+    demandLabel ? {term: t("demand"), value: demandLabel} : null,
+    subjects.length > 0 ? {term: tCommon("subjects"), value: subjects.join(", ")} : null,
     profession.specialties.length > 0 ? {term: t("specialties"), value: profession.specialties.join(", ")} : null
   ]);
 
@@ -71,18 +72,17 @@ export default async function ProfessionPage({params}: {params: Promise<{locale:
         eyebrow={localizedText(profession.direction, "name", locale)}
         title={name}
       />
-      <ContentNotice locale={locale} />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <article className="rounded-3xl border border-border bg-surface p-6">
           <h2 className="text-lg font-extrabold">{t("whatTheyDo")}</h2>
           <p className="mt-2 text-sm leading-6 whitespace-pre-line">{localizedText(profession, "whatTheyDo", locale)}</p>
 
-          {profession.skills.length > 0 ? (
+          {skills.length > 0 ? (
             <>
               <h3 className="mt-6 text-sm font-bold text-muted uppercase">{tCommon("skills")}</h3>
               <ul className="mt-3 flex flex-wrap gap-2">
-                {profession.skills.map((skill) => (
+                {skills.map((skill) => (
                   <li className={chipClass} key={skill}>
                     {skill}
                   </li>

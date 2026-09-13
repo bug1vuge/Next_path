@@ -1,12 +1,11 @@
 import {Search} from "lucide-react";
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import {buttonClass, inputClass} from "@/components/ui/button";
-import {ContentNotice} from "@/components/ui/content-notice";
 import {PageHeader, Section} from "@/components/ui/page-header";
 import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {searchEverything} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {localizedPlace, localizedText} from "@/lib/content";
 import type {Locale} from "@/lib/locales";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -53,7 +52,6 @@ export default async function SearchPage({
   return (
     <div className="container-page pb-16">
       <PageHeader title={t("title")} description={t("subtitle")} />
-      <ContentNotice locale={locale} />
 
       <form className="flex flex-wrap gap-3">
         <label className="min-w-60 flex-1">
@@ -110,7 +108,7 @@ export default async function SearchPage({
                   id: university.id,
                   href: `/universities/${university.slug}`,
                   title: localizedText(university, "name", locale),
-                  subtitle: university.city ? `${university.country}, ${university.city}` : university.country
+                  subtitle: localizedPlace(university, locale)
                 }))}
               />
             </Section>

@@ -5,7 +5,7 @@ import {PageHeader} from "@/components/ui/page-header";
 import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {getDirectionSlugs, getQuestions} from "@/lib/catalog";
-import {localizedText} from "@/lib/content";
+import {localizedText, localizedValue} from "@/lib/content";
 import type {Locale} from "@/lib/locales";
 
 export default async function TestPage({params}: {params: Promise<{locale: Locale}>}) {
@@ -19,7 +19,7 @@ export default async function TestPage({params}: {params: Promise<{locale: Local
   const items: TestQuestion[] = questions.map((question) => ({
     id: question.id,
     order: question.order,
-    block: question.block,
+    block: localizedValue(question, "block", locale),
     text: localizedText(question, "text", locale),
     options: question.options.map((option) => ({
       id: option.id,
