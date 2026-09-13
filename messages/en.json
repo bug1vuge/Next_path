@@ -23,7 +23,7 @@
     "professions": "Professions",
     "universities": "Universities",
     "about": "About",
-    "sourceNote": "Catalogue data is imported from the team's working spreadsheet and shown unchanged."
+    "sourceNote": "Catalogue data is imported from the team's working spreadsheet and shown unchanged, apart from corrected typos in the test."
   },
   "common": {
     "more": "Details",
@@ -318,7 +318,7 @@
     "problemTitle": "Why it exists",
     "problemText": "Information about professions, universities, requirements and grants is scattered across dozens of sites. Next Path puts it into one route: test → direction → profession → university → admission plan.",
     "dataTitle": "Where the data comes from",
-    "dataText": "The catalogue is imported from the team's working spreadsheet and shown unchanged. When the source has no ranking, tuition or deadline, we hide the block instead of inventing one.",
+    "dataText": "The catalogue is imported from the team's working spreadsheet and shown unchanged — we only correct typos in the test questions. When the source has no ranking, tuition or deadline, we hide the block instead of inventing one.",
     "languageTitle": "Languages",
     "languageText": "The interface and the catalogue are available in Russian, Kazakh and English. The team keeps the translations in the same spreadsheet as the source data.",
     "privacyTitle": "Your data",

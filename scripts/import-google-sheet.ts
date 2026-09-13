@@ -22,6 +22,7 @@ import {readFile} from "node:fs/promises";
 import * as XLSX from "xlsx";
 import {PrismaClient, type Admission, type Prisma} from "@prisma/client";
 import {categoryForBlock, weightsForArchetype} from "../lib/test-mapping";
+import {correct, TEST_CORRECTIONS, type Correction} from "./source-corrections";
 import {
   directionSlug,
   inlineText,
@@ -575,10 +576,21 @@ async function importTest(workbook: XLSX.WorkBook) {
   const questionKeys: string[] = [];
   const optionKeys: string[] = [];
   const unmatchedArchetypes = new Set<string>();
+  const usedCorrections = new Set<Correction>();
   let weighted = 0;
 
+  // Whitespace is normalised first, so a correction matches a sentence the sheet splits across lines.
+  const testText = (value: Triple<unknown>): Triple<string> => {
+    const normalised = texts(value, inlineText);
+    return {
+      ru: correct(normalised.ru, "ru", usedCorrections),
+      kk: correct(normalised.kk, "kk", usedCorrections),
+      en: correct(normalised.en, "en", usedCorrections)
+    };
+  };
+
   for (const [index] of sheet.ru.rows.entries()) {
-    const question = texts(cell(sheet, index, TEST.question), inlineText);
+    const question = testText(cell(sheet, index, TEST.question));
     if (!question.ru) continue;
     const order = index + 1;
     const block = texts(cell(sheet, index, TEST.block));
@@ -602,7 +614,7 @@ async function importTest(workbook: XLSX.WorkBook) {
     questionKeys.push(sourceKey);
 
     for (const letter of ["A", "B", "C", "D"] as const) {
-      const option = texts(cell(sheet, index, TEST.options[letter]), inlineText);
+      const option = testText(cell(sheet, index, TEST.options[letter]));
       if (!option.ru) continue;
       // The Russian archetype is the key the direction weights are defined by;
       // the translations are only its label.
@@ -634,6 +646,13 @@ async function importTest(workbook: XLSX.WorkBook) {
   for (const archetype of unmatchedArchetypes) {
     warn(`Answer archetype "${archetype}" has no direction weights in lib/test-mapping.ts.`);
   }
+  for (const entry of TEST_CORRECTIONS) {
+    if (!usedCorrections.has(entry)) {
+      warn(
+        `Correction for question ${entry.question} (${entry.lang}) no longer matches — the sheet is fixed; delete it from scripts/source-corrections.ts: "${entry.from}"`
+      );
+    }
+  }
 
   const removedOptions = await db.option.deleteMany({where: {sourceKey: {notIn: optionKeys}}});
   const removedQuestions = await db.question.deleteMany({where: {sourceKey: {notIn: questionKeys}}});
@@ -641,6 +660,7 @@ async function importTest(workbook: XLSX.WorkBook) {
     questions: questionKeys.length,
     options: optionKeys.length,
     weighted,
+    corrections: usedCorrections.size,
     removed: removedQuestions.count + removedOptions.count
   };
 }
@@ -750,6 +770,7 @@ async function main() {
   );
   console.log(`Programs linked to a specific profession: ${programs.professionLinks}`);
   console.log(`Answer options with direction weights: ${test.weighted}/${test.options}`);
+  console.log(`Test text corrections applied: ${test.corrections}/${TEST_CORRECTIONS.length}`);
   console.log(`Professions with a salary figure: ${professions.numericSalaries}/${professions.imported}`);
 
   const issues = await verify();
