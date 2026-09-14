@@ -98,6 +98,13 @@ export function SiteHeader() {
           </Link>
           <Link
             className="rounded-xl px-3 py-3 font-semibold transition-colors duration-150 hover:bg-soft"
+            href="/reviews"
+            onClick={() => setOpen(false)}
+          >
+            {t("reviews")}
+          </Link>
+          <Link
+            className="rounded-xl px-3 py-3 font-semibold transition-colors duration-150 hover:bg-soft"
             href="/about"
             onClick={() => setOpen(false)}
           >

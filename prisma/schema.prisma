@@ -216,3 +216,16 @@ model Review {
   @@index([universityId])
   @@index([programId])
 }
+
+/// A review of the site left by a visitor: published at once and shown to everyone.
+/// `hidden` lets the team take a review down (e.g. in Prisma Studio) without deleting it.
+model SiteReview {
+  id        String   @id @default(cuid())
+  name      String
+  rating    Int
+  text      String   @db.Text
+  hidden    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([hidden, createdAt])
+}

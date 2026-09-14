@@ -1,18 +1,29 @@
 import {ArrowRight, Compass, GraduationCap, Sparkles} from "lucide-react";
 import {getTranslations, setRequestLocale} from "next-intl/server";
 import {DirectionCard, type DirectionCardData} from "@/components/catalog/cards";
+import {ReviewList} from "@/components/reviews/review-list";
+import {Stars} from "@/components/reviews/stars";
 import {buttonClass} from "@/components/ui/button";
+import {EmptyState} from "@/components/ui/states";
 import {Link} from "@/i18n/navigation";
 import {getCatalogCounts, getDirections} from "@/lib/catalog";
 import {localizedText, localizedValues} from "@/lib/content";
+import {formatNumber} from "@/lib/format";
 import type {Locale} from "@/lib/locales";
+import {getReviews, getReviewSummary} from "@/lib/reviews";
 
 export default async function HomePage({params}: {params: Promise<{locale: Locale}>}) {
   const {locale} = await params;
   setRequestLocale(locale);
   const t = await getTranslations("home");
+  const tReviews = await getTranslations("reviews");
 
-  const [counts, directions] = await Promise.all([getCatalogCounts(), getDirections()]);
+  const [counts, directions, reviews, reviewSummary] = await Promise.all([
+    getCatalogCounts(),
+    getDirections(),
+    getReviews(3),
+    getReviewSummary()
+  ]);
   const cards: DirectionCardData[] = directions.slice(0, 6).map((direction) => ({
     slug: direction.slug,
     name: localizedText(direction, "name", locale),
@@ -93,6 +104,43 @@ export default async function HomePage({params}: {params: Promise<{locale: Local
           </div>
         </section>
       ) : null}
+
+      <section className="border-t border-border bg-surface">
+        <div className="container-page py-14">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold tracking-tight">{tReviews("homeTitle")}</h2>
+              {reviewSummary.average !== null ? (
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
+                  <Stars
+                    label={tReviews("averageValue", {average: formatNumber(reviewSummary.average, locale)})}
+                    value={reviewSummary.average}
+                  />
+                  <span className="tabular-nums">{formatNumber(reviewSummary.average, locale)}</span>
+                  <span className="text-muted">· {tReviews("count", {count: reviewSummary.count})}</span>
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {reviews.length > 0 ? (
+                <Link className={buttonClass("ghost")} href="/reviews">
+                  {tReviews("all")}
+                </Link>
+              ) : null}
+              <Link className={buttonClass("primary")} href="/reviews#review-form">
+                {tReviews("leave")}
+              </Link>
+            </div>
+          </div>
+          <div className="mt-6">
+            {reviews.length === 0 ? (
+              <EmptyState text={tReviews("emptyText")} title={tReviews("empty")} />
+            ) : (
+              <ReviewList className="grid gap-4 md:grid-cols-3" locale={locale} reviews={reviews} />
+            )}
+          </div>
+        </div>
+      </section>
     </>
   );
 }

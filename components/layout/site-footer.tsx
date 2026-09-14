@@ -28,6 +28,9 @@ export function SiteFooter() {
           <Link className="hover:text-brand" href="/universities">
             {t("universities")}
           </Link>
+          <Link className="hover:text-brand" href="/reviews">
+            {t("reviews")}
+          </Link>
           <Link className="hover:text-brand" href="/about">
             {t("about")}
           </Link>

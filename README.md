@@ -92,7 +92,7 @@ The importer never invents a value. Where the source is silent, the field stays 
 - **Ratings.** The sheet mixes world rankings (`166`, `401-500`), national positions (`топ-3`, `1(4)`) and spreadsheet artefacts. The label is kept verbatim in `ratingLabel`; the numeric `rating` is filled only for a single plausible world-ranking position, and universities are never sorted by rating across those different scales.
 - **Tuition.** Parsed with its currency (`KZT`, `USD`, `GBP`, `EUR`, `CHF`, `CAD`, `SGD`) into `tuitionMin` / `tuitionMax` / `tuitionCurrency`, with the raw cell kept in `tuitionNote`. When the Russian cell omits the currency but the Kazakh or English version of that same cell names it, the currency is taken from there. Amounts are never converted between currencies; a cell that cannot be read confidently leaves the numbers empty and keeps only the note.
 - **Admission** is stored as the source's own free text on `Admission`, field by field. A cell holding only a dash counts as blank. The current sheet carries only `Экзамены`; the `IELTS`, `SAT`, `Гранты` and `Дедлайн` columns an earlier revision had are **kept as stored, not cleared** — an absent column says nothing about the data, unlike a blank cell — and the import says so. Those four are Russian-only until the sheet provides them again.
-- **Reviews** are never seeded or generated. The `Review` table stays empty and the interface shows its empty state.
+- **University reviews** are never seeded or generated. The `Review` table stays empty and the university page shows its empty state. Reviews of the site itself are written by visitors — see [Site reviews](#site-reviews).
 
 The wording is not edited, with one listed exception: spelling and grammar errors in the test questions that the sheet still contains are corrected by `scripts/source-corrections.ts`. Each entry replaces an exact fragment in one language and applies only while that fragment is still in the sheet; once the team fixes the cell, the import lists the entry as unused so it can be deleted. Everything else is fixed in the sheet and re-imported. Layout artefacts are normalised as well: line breaks and doubled spaces typed inside a test question or answer (which would otherwise split the sentence on screen), and label casing ("Очень Высокая" / "Очень высокая"), which would otherwise appear as two separate filter options.
 
@@ -154,6 +154,7 @@ Headers are Prisma field names. Empty cells become `null`. List columns use a JS
 /[locale]/admission-plan       checklist plus requirements for saved universities
 /[locale]/grants               grant information per university
 /[locale]/search               grouped results across every entity
+/[locale]/reviews              visitors' reviews of the site, and the form to leave one
 /[locale]/about                what the project is and where the data comes from
 ```
 
@@ -196,6 +197,17 @@ course, contest, internship or deadline is ever named that the source did not
 provide, and the interface says so under the list. For the same reason the
 career-path chain shows its growth step as unknown while `careerLadder` is
 empty, rather than inventing job titles.
+
+## Site reviews
+
+Anyone using the site can leave a review — a name, a 1–5 star rating and a text — at `/[locale]/reviews`. It is **published immediately** and shown to every visitor there, with the three latest on the home page. Reviews live in the `SiteReview` table, separate from the catalogue: the sheet import never touches them.
+
+The form posts to a server action (`app/[locale]/reviews/actions.ts`); the rules it shares with the interface are in `lib/review-input.ts` and unit-tested. The server validates everything regardless of the browser: name up to 60 characters, a whole rating from 1 to 5, text up to 1000 characters. Two light safeguards stand in for moderation:
+
+- a hidden form field that people never see — a submission that fills it is answered with a quiet success and not saved;
+- at most 3 reviews per sender (by IP) in 10 minutes. The count lives in the server's memory, which suits a single Railway instance and resets on each deploy.
+
+There is no moderation queue. To take a review down, set `hidden` to `true` on its row — for example in `pnpm exec prisma studio`, or with `UPDATE "SiteReview" SET hidden = true WHERE id = '…';` in the Railway database. A hidden review stays in the table but is never shown.
 
 ## Tests
 

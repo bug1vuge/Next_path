@@ -150,9 +150,49 @@ test("the interface switches fully to Kazakh", async ({page}) => {
   expect(chrome).not.toContain("Universities");
 
   await page.goto("/en/directions");
+  // The catalogue streams in behind a loading skeleton; wait for the cards before reading them.
+  await expect(page.getByRole("heading", {level: 3}).first()).toBeVisible();
   const englishCards = await page.getByRole("heading", {level: 3}).allTextContents();
   expect(englishCards.length).toBeGreaterThan(0);
   expect(englishCards.filter((name) => /[А-Яа-яЁё]/.test(name))).toEqual([]);
+});
+
+test("a published review is visible to every visitor", async ({page, browser}) => {
+  const name = `E2E ${Date.now()}`;
+  const text = `Тест помог выбрать направление — ${name}`;
+
+  await page.goto("/ru/reviews");
+  await expect(page.getByRole("heading", {level: 1, name: ru.reviews.title})).toBeVisible();
+
+  // Publishing with nothing filled in explains every missing field.
+  await page.getByRole("button", {name: ru.reviews.publish}).click();
+  await expect(page.getByText(ru.reviews.errors.nameRequired)).toBeVisible();
+  await expect(page.getByText(ru.reviews.errors.ratingRequired)).toBeVisible();
+  await expect(page.getByText(ru.reviews.errors.textRequired)).toBeVisible();
+
+  await page.getByLabel(ru.reviews.name, {exact: true}).fill(name);
+  // Click the fourth star, as a visitor would; the radio behind it carries the accessible name.
+  const fourStars = page.getByRole("radio", {name: ru.reviews.ratingValue.replace("{rating}", "4"), exact: true});
+  await page.locator("label").filter({has: fourStars}).click();
+  await expect(fourStars).toBeChecked();
+  await page.getByLabel(ru.reviews.text, {exact: true}).fill(text);
+  await page.getByRole("button", {name: ru.reviews.publish}).click();
+  await expect(page.getByRole("status")).toHaveText(ru.reviews.success);
+  // The form clears for the next review.
+  await expect(page.getByLabel(ru.reviews.name, {exact: true})).toHaveValue("");
+
+  // Someone else, in a separate browser with no shared state, sees it on the reviews page and the home page.
+  const visitor = await browser.newContext({locale: "ru-RU"});
+  const other = await visitor.newPage();
+  await other.goto("/ru/reviews");
+  const card = other.getByRole("listitem").filter({hasText: name});
+  await expect(card).toContainText(text);
+  await expect(card.getByRole("img", {name: ru.reviews.ratingValue.replace("{rating}", "4")})).toBeVisible();
+
+  await other.goto("/ru");
+  await expect(other.getByRole("heading", {name: ru.reviews.homeTitle})).toBeVisible();
+  await expect(other.getByText(text)).toBeVisible();
+  await visitor.close();
 });
 
 test("the mobile layout never overflows sideways", async ({page}) => {
@@ -169,6 +209,7 @@ test("the mobile layout never overflows sideways", async ({page}) => {
     "/ru/career-path",
     "/ru/grants",
     "/ru/search",
+    "/ru/reviews",
     "/ru/about"
   ]) {
     await page.goto(path);
