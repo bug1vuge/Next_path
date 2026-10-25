@@ -3,6 +3,7 @@ import {NextResponse} from "next/server";
 import {getKnowledgeBase} from "@/lib/assistant/catalogue";
 import {validateAssistantRequest, retrievalQuery} from "@/lib/assistant/input";
 import {buildReference, catalogueIndex, type KnowledgeBase} from "@/lib/assistant/knowledge";
+import {localReply, streamText} from "@/lib/assistant/local";
 import {assistantConfigured, ModelError, streamReply} from "@/lib/assistant/model";
 import {buildSystemPrompt, wrapQuestion} from "@/lib/assistant/prompt";
 import {withinRateLimit} from "@/lib/review-input";
@@ -14,6 +15,10 @@ import {withinRateLimit} from "@/lib/review-input";
  * streamed back as plain text. Errors answer with JSON `{error}` whose value is
  * a key the widget translates: `unavailable`, `tooMany`, `tooLong`, `invalid`,
  * `failed`.
+ *
+ * With `ANTHROPIC_API_KEY` set the reply comes from the language model;
+ * without it, from the free rule-based engine in `lib/assistant/local.ts`,
+ * which answers from the same catalogue and site guide.
  */
 export const dynamic = "force-dynamic";
 
@@ -28,8 +33,6 @@ function failure(error: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  if (!assistantConfigured()) return failure("unavailable", 503);
-
   let body: unknown;
   try {
     body = await request.json();
@@ -53,6 +56,17 @@ export async function POST(request: Request) {
     console.error("Assistant: failed to load the catalogue", error);
   }
 
+  const textHeaders = {
+    "content-type": "text/plain; charset=utf-8",
+    "cache-control": "no-store",
+    "x-accel-buffering": "no"
+  };
+
+  if (!assistantConfigured()) {
+    const reply = localReply({base, locale, messages, pathname, profile});
+    return new Response(streamText(reply, request.signal), {headers: {...textHeaders, "x-assistant-mode": "local"}});
+  }
+
   const question = messages[messages.length - 1].content;
   const reference = buildReference({base, locale, question: retrievalQuery(messages), pathname, profile});
   const conversation = [...messages.slice(0, -1), {role: "user" as const, content: wrapQuestion(question, reference)}];
@@ -63,13 +77,7 @@ export async function POST(request: Request) {
       messages: conversation,
       signal: request.signal
     });
-    return new Response(stream, {
-      headers: {
-        "content-type": "text/plain; charset=utf-8",
-        "cache-control": "no-store",
-        "x-accel-buffering": "no"
-      }
-    });
+    return new Response(stream, {headers: textHeaders});
   } catch (error) {
     if (request.signal.aborted) return new Response(null, {status: 499});
     console.error("Assistant: model request failed", error);

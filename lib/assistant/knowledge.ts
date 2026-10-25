@@ -247,13 +247,18 @@ export function describeDirection(base: KnowledgeBase, direction: DirectionDoc, 
   ]);
 }
 
-export function describeProfession(base: KnowledgeBase, profession: ProfessionDoc, locale: Locale): string {
-  const direction = base.directions.find((item) => item.slug === profession.directionSlug);
+/** Universities with a program of this profession first, then those with a program in its direction. */
+export function universitiesForProfession(base: KnowledgeBase, profession: ProfessionDoc, limit = 8): UniversityDoc[] {
   const linked = base.universities.filter((university) => university.professionSlugs.includes(profession.slug));
   const byDirection = base.universities.filter(
     (university) => !linked.includes(university) && university.directionSlugs.includes(profession.directionSlug)
   );
-  const universities = [...linked, ...byDirection].slice(0, 8);
+  return [...linked, ...byDirection].slice(0, limit);
+}
+
+export function describeProfession(base: KnowledgeBase, profession: ProfessionDoc, locale: Locale): string {
+  const direction = base.directions.find((item) => item.slug === profession.directionSlug);
+  const universities = universitiesForProfession(base, profession);
   return block(`[Профессия] ${pick(profession.name, locale)} — /professions/${profession.slug}`, [
     direction ? line("Направление", `${pick(direction.name, locale)} (/directions/${direction.slug})`) : null,
     line("Кратко", pick(profession.shortDescription, locale)),

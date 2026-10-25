@@ -21,7 +21,7 @@ DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/next_path?schema=public"
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | PostgreSQL connection string used by Prisma at build and run time. |
-| `ANTHROPIC_API_KEY` | for the assistant | Key for the site assistant's language model. Without it the chat button still appears and answers that the assistant is unavailable. |
+| `ANTHROPIC_API_KEY` | no | Key for the site assistant's language model. Without it the assistant runs on the free rule-based engine. |
 | `ASSISTANT_MODEL` | no | Model id for the assistant; defaults to `claude-haiku-5-5`. |
 
 Create the database and apply migrations:
@@ -243,9 +243,22 @@ path** — over one knowledge base.
 - **Conversation** lives in the tab's `sessionStorage`: it survives moving
   between pages and switching language and is forgotten when the tab closes.
 
-The model is Anthropic's Claude, called with `fetch` (no SDK). To enable the
-assistant on Railway, add `ANTHROPIC_API_KEY` to the service's variables and
-redeploy; `ASSISTANT_MODEL` optionally picks another model.
+**Two engines, one behaviour.** By default — with no key and no cost — replies
+come from the rule-based engine in `lib/assistant/local.ts`. It follows the
+specification step by step: it recognises which module a question belongs to,
+answers the site questions from the section list, finds professions,
+directions and universities in the catalogue (also for follow-ups such as "а
+сколько там стоит?" and for the page the visitor is on), quotes the stored
+values and says "В базе Next Path этого пока нет" for empty fields, asks the
+clarifying question from the specification for vague requests ("мне нравится
+математика…"), refuses non-existent features, homework and gives the 150
+helpline in distress. It answers in Russian, Kazakh or English and streams the
+reply like a model would. Its behaviour is unit-tested in
+`tests/unit/assistant-local.test.ts`.
+
+If `ANTHROPIC_API_KEY` is set on the server, the same route uses Anthropic's
+Claude instead (called with `fetch`, no SDK; `ASSISTANT_MODEL` optionally picks
+the model). Removing the key switches back to the free engine.
 
 ## Tests
 
@@ -333,5 +346,5 @@ railway run pnpm db:import:sheet
 | `PORT` | Railway | Injected; `next start` binds to it. |
 | `RAILWAY_PUBLIC_DOMAIN` | Railway | Absolute base for Open Graph images. |
 | `NEXT_PUBLIC_SITE_URL` | you, optional | Overrides the base on a custom domain. |
-| `ANTHROPIC_API_KEY` | you | Enables the site assistant. |
+| `ANTHROPIC_API_KEY` | you, optional | Switches the site assistant from the rule-based engine to the language model. |
 | `ASSISTANT_MODEL` | you, optional | Overrides the assistant's model. |
