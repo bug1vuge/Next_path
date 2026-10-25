@@ -26,6 +26,24 @@ body { min-height: 100vh; background: var(--color-canvas); color: var(--color-in
 .container-page { width: min(100% - 2rem, 72rem); margin-inline: auto; }
 :focus-visible { outline: 3px solid var(--color-brand); outline-offset: 3px; }
 
+/*
+ * Tailwind v4 no longer gives buttons a pointer cursor. Everything clickable
+ * gets one here — buttons (the assistant's included), selects, checkboxes,
+ * radios and the labels wrapping them; disabled controls show "not allowed".
+ * In the base layer, so a component's own cursor utility still wins.
+ */
+@layer base {
+  button, [role="button"], [type="button"], [type="submit"], [type="reset"], summary, select,
+  input[type="checkbox"], input[type="radio"], input[type="file"], input[type="range"], input[type="color"],
+  label:has(input[type="checkbox"], input[type="radio"]) {
+    cursor: pointer;
+  }
+  button:disabled, [role="button"][aria-disabled="true"], select:disabled, input:disabled,
+  label:has(input:disabled) {
+    cursor: not-allowed;
+  }
+}
+
 /* ==========================================================================
    Motion and visual polish (modelled on the HOLZ redesign).
    Everything below is decorative: with prefers-reduced-motion the page is

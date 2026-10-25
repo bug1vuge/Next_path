@@ -24,20 +24,16 @@ const extraMobileItems = [
 ] as const;
 
 /**
- * The header stays pinned to the top. It is transparent over the top of the
- * page, turns frosted once the page scrolls, slides away while the visitor
- * scrolls down and comes back as soon as they scroll up. Its visible height is
+ * The header stays pinned to the top at all times. It is transparent over the
+ * top of the page and turns frosted once the page scrolls. Its height is
  * published as `--header-offset`, so sticky parts of pages sit below it.
  */
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const t = useTranslations("navigation");
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
-  const openRef = useRef(open);
-  openRef.current = open;
 
   useEffect(() => setOpen(false), [pathname]);
 
@@ -45,7 +41,6 @@ export function SiteHeader() {
     const header = headerRef.current;
     if (!header) return;
     const root = document.documentElement;
-    let last = window.scrollY;
     let frame = 0;
 
     const update = () => {
@@ -54,10 +49,6 @@ export function SiteHeader() {
       const max = root.scrollHeight - window.innerHeight;
       header.style.setProperty("--scroll-progress", max > 0 ? String(Math.min(1, y / max)) : "0");
       setScrolled(y > 12);
-      if (openRef.current || y < 320) setHidden(false);
-      else if (y > last + 4) setHidden(true);
-      else if (y < last - 4) setHidden(false);
-      last = y;
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
@@ -72,25 +63,25 @@ export function SiteHeader() {
     };
   }, []);
 
-  // Sticky parts of pages (the career map's progress rail, the review form) sit under the visible header.
+  // Sticky parts of pages (the career map's progress rail, the review form) sit under the header.
   useEffect(() => {
     const header = headerRef.current;
     if (!header) return;
     const root = document.documentElement;
-    const publish = () => root.style.setProperty("--header-offset", hidden ? "0px" : `${header.offsetHeight}px`);
+    const publish = () => root.style.setProperty("--header-offset", `${header.offsetHeight}px`);
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(header);
     return () => observer.disconnect();
-  }, [hidden, open]);
+  }, []);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header
-      className={`np-header sticky top-0 z-40 border-b transition-[translate,background-color,border-color,box-shadow] duration-500 ease-[cubic-bezier(.22,.9,.25,1)] ${
+      className={`np-header sticky top-0 z-40 border-b transition-[background-color,border-color,box-shadow] duration-500 ease-[cubic-bezier(.22,.9,.25,1)] ${
         scrolled || open ? "border-border bg-canvas/80 shadow-[0_10px_30px_-18px_rgb(28_42_57/0.35)] backdrop-blur-xl backdrop-saturate-150" : "border-transparent bg-canvas/0"
-      } ${hidden ? "-translate-y-full" : "translate-y-0"}`}
+      }`}
       ref={headerRef}
     >
       <div className={`container-page flex items-center justify-between gap-3 transition-[min-height] duration-500 ${scrolled ? "min-h-16" : "min-h-20"}`}>

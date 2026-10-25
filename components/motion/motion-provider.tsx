@@ -1,18 +1,17 @@
 "use client";
 
-import Lenis from "lenis";
-import "lenis/dist/lenis.css";
 import {useEffect} from "react";
 
 /**
  * Site-wide motion, modelled on the HOLZ redesign:
  *
- * - smooth wheel scrolling (Lenis) — never inside dialogs, fields or nested
- *   scroll areas, so the assistant's chat and the filters scroll as before;
  * - `[data-reveal]` elements rise into view as they enter the screen; those
  *   entering together are staggered. Elements added later (navigation, client
  *   rendering) are picked up automatically;
  * - a soft cursor ring on devices with a precise pointer.
+ *
+ * Scrolling itself stays native: a smooth-scroll library that takes over the
+ * wheel could stop short of the end of the page on some devices.
  *
  * Everything is skipped with `prefers-reduced-motion`. Content is only hidden
  * while the inline script in `app/layout.tsx` has marked the page as animated,
@@ -24,15 +23,6 @@ export function MotionProvider() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     root.classList.add("motion-ready");
     if (reduced) return;
-
-    // ---- smooth scrolling
-    const lenis = new Lenis({
-      autoRaf: true,
-      lerp: 0.12,
-      anchors: {offset: -80},
-      allowNestedScroll: true,
-      prevent: (node) => Boolean(node.closest?.('[role="dialog"], [data-lenis-prevent], textarea, select'))
-    });
 
     // ---- reveal on scroll
     // Elements are animated with the Web Animations API and tracked in memory:
@@ -157,7 +147,6 @@ export function MotionProvider() {
       observer.disconnect();
       mutations.disconnect();
       cursorCleanup();
-      lenis.destroy();
     };
   }, []);
 
