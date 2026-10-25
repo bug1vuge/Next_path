@@ -113,14 +113,28 @@ const STOP_WORDS = new Set(
 );
 
 /**
+ * Words that name a kind of record rather than a record ("университет", "профессия"):
+ * "Нархоз университеті" must not match every question that mentions universities.
+ */
+const GENERIC_PREFIXES = [
+  "универ", "вуз", "професс", "направлен", "институт", "академи", "колледж", "специальн",
+  "мамандық", "бағыт", "оқу орн", "univers", "profess", "direction", "college", "institut", "academ"
+].map(normalizeForSearch);
+
+/**
  * Words of the question reduced to a crude stem, so Russian and Kazakh endings
  * still match: "программистом" → "программис", "медицине" → "медици".
  */
 export function questionStems(question: string): string[] {
   const words = normalizeForSearch(question)
     .split(/[^\p{L}\p{N}+#]+/u)
-    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
-  const stems = words.map((word) => (word.length <= 4 ? word : word.slice(0, Math.max(4, Math.ceil(word.length * 0.7)))));
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word) && !GENERIC_PREFIXES.some((prefix) => word.startsWith(prefix)));
+  const stems = words.map((word) => {
+    if (word.length <= 4) return word;
+    // Short words lose their ending entirely ("врачом" → "врач", "юриста" → "юрис").
+    if (word.length <= 6) return word.slice(0, 4);
+    return word.slice(0, Math.ceil(word.length * 0.7));
+  });
   return [...new Set(stems)];
 }
 

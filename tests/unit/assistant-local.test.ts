@@ -102,6 +102,46 @@ describe("local assistant — the educational path", () => {
   });
 });
 
+describe("local assistant — deciding what the question is about first", () => {
+  const aboutUniversity: ChatTurn[] = [
+    {role: "user", content: "Расскажи про КазНМУ"},
+    {role: "assistant", content: "**КазНМУ** — Казахстан, Алматы. Могу рассказать о стоимости, экзаменах, грантах или сроках — спроси."}
+  ];
+
+  it("answers a question about the platform even right after talking about a university", () => {
+    const reply = ask("для чего вообще ваша платформа?", {history: aboutUniversity});
+    expect(reply).toContain("профориентационная платформа");
+    expect(reply).not.toContain("КазНМУ");
+    expect(ask("что это за сайт?", {history: aboutUniversity})).toContain("профориентационная платформа");
+    expect(ask("а что ты умеешь?", {history: aboutUniversity})).toContain("помощник Next Path");
+  });
+
+  it("answers a general question generally, not about the previous university", () => {
+    expect(ask("Как узнать о грантах в университетах?", {history: aboutUniversity})).toContain("(/grants)");
+    expect(ask("Какие университеты есть в базе?")).toContain("Университеты в базе Next Path");
+  });
+
+  it("says plainly that the site is free", () => {
+    expect(ask("Сайт платный?", {history: aboutUniversity})).toContain("Next Path бесплатный");
+  });
+
+  it("does not take a profession's name for another word", () => {
+    expect(ask("Какие навыки нужны программисту?")).toContain("Алгоритмы");
+    expect(ask("Сколько зарабатывает программист?")).toContain("800 000 ₸");
+  });
+
+  it("lays out the steps towards a profession, separating advice from data", () => {
+    const reply = ask("Как стать программистом?");
+    expect(reply).toContain("1. Подтяни школьные предметы: Математика, Информатика.");
+    expect(reply).toContain("/universities/aitu");
+    expect(reply).toContain("Общая рекомендация (это не данные Next Path)");
+  });
+
+  it("recognises a vague request with words in between", () => {
+    expect(ask("кем мне стать?")).toContain("Давай сузим выбор");
+  });
+});
+
 describe("local assistant — boundaries and language", () => {
   it("declines homework and gives the helpline in distress", () => {
     expect(ask("Реши домашнее задание по алгебре")).toContain("С этим я не помогу");

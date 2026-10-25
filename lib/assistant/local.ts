@@ -4,6 +4,7 @@ import type {ChatTurn} from "./input";
 import {
   findMatches,
   pageContext,
+  questionStems,
   pick,
   pickList,
   universitiesForProfession,
@@ -91,6 +92,22 @@ const L = {
 - показать, где учиться и что нужно для поступления — по данным базы Next Path.
 
 О чём хочешь узнать?`,
+    purpose: (test: string, dirs: string, profs: string, unis: string, plan: string, map: string) =>
+      `Next Path — бесплатная профориентационная платформа для школьников 8–11 классов и абитуриентов Казахстана. Она помогает самостоятельно изучать профессии и принимать более осознанные решения о будущем:
+- пройти ${test} и узнать, какие направления тебе ближе;
+- изучить ${dirs} и ${profs}: чем занимаются специалисты, какие нужны навыки и школьные предметы;
+- найти ${unis}, их программы и требования к поступлению;
+- собрать ${plan} и увидеть весь маршрут на странице ${map}.
+
+Регистрация не нужна. Начать проще всего с теста.`,
+    stepsIntro: (name: string) => `Путь к профессии **${name}** по шагам (по данным Next Path):`,
+    stepSubjects: (list: string) => `Подтяни школьные предметы: ${list}.`,
+    stepSkills: (list: string) => `Развивай навыки: ${list}.`,
+    stepUniversities: (links: string) => `Выбери вуз. В базе Next Path есть: ${links}. Сохрани понравившиеся в избранное.`,
+    stepNoUniversities: "Вузов с такими программами в базе Next Path пока нет — ищи на официальных сайтах вузов.",
+    stepRequirements: (plan: string) => `Проверь требования к поступлению и сроки на странице вуза и в разделе ${plan}. Точные условия всегда уточняй на официальном сайте вуза.`,
+    stepsAdvice: "Общая рекомендация (это не данные Next Path): попробуй себя в деле заранее — кружки, олимпиады, онлайн-курсы или разговор со специалистом помогут понять, твоё ли это.",
+    stepsAsk: (test: string) => `О какой профессии речь? Назови её — распишу шаги по данным Next Path. Если ещё не определился, начни с ${test}.`,
     thanks: "Пожалуйста! Если появятся ещё вопросы — пиши.",
     crisis:
       "Мне очень жаль, что тебе сейчас так тяжело. Ты не один, и об этом важно сказать человеку рядом: родителям, близкому взрослому, учителю или школьному психологу. Можно бесплатно и анонимно позвонить на детскую линию доверия Казахстана — **150**, там выслушают и помогут. Если есть опасность прямо сейчас — звони **112**.",
@@ -108,6 +125,7 @@ const L = {
     applyNote: (s: string) => `Документы подаются через приёмную комиссию вуза. На Next Path можно собрать требования выбранных вузов в разделе ${s}.`,
     humanNote: "Если нужен разговор с человеком — обратись к школьному психологу или профориентатору.",
     paymentNote: "Сайт бесплатный, все разделы открыты.",
+    paymentAnswer: (test: string) => `Нет, Next Path бесплатный: регистрация и оплата не нужны, все разделы открыты. Начать можно с ${test}.`,
     chancesNote: (s: string) => `Я не оцениваю шансы на поступление. Посмотри требования вузов на их страницах и в разделе ${s}.`,
     instead: "Что есть на сайте",
     start: (test: string, dirs: string, map: string) =>
@@ -209,6 +227,22 @@ const L = {
 - Next Path базасы бойынша қайда оқуға болатынын және түсуге не керек екенін көрсетемін.
 
 Не туралы білгің келеді?`,
+    purpose: (test: string, dirs: string, profs: string, unis: string, plan: string, map: string) =>
+      `Next Path — Қазақстандағы 8–11 сынып оқушылары мен талапкерлерге арналған тегін кәсіби бағдар платформасы. Ол мамандықтарды өз бетіңше зерттеуге және болашақ туралы саналы шешім қабылдауға көмектеседі:
+- ${test} тапсырып, саған қай бағыттар жақын екенін білу;
+- ${dirs} мен ${profs} зерттеу: мамандар немен айналысады, қандай дағдылар мен мектеп пәндері керек;
+- ${unis}, олардың бағдарламалары мен түсу талаптарын табу;
+- ${plan} құрып, бүкіл маршрутты ${map} бетінде көру.
+
+Тіркелу қажет емес. Тесттен бастаған оңай.`,
+    stepsIntro: (name: string) => `**${name}** мамандығына апаратын жол қадамдармен (Next Path деректері бойынша):`,
+    stepSubjects: (list: string) => `Мектеп пәндерін күшейт: ${list}.`,
+    stepSkills: (list: string) => `Дағдыларды дамыт: ${list}.`,
+    stepUniversities: (links: string) => `ЖОО таңда. Next Path базасында бар: ${links}. Ұнағанын таңдаулыларға сақта.`,
+    stepNoUniversities: "Next Path базасында мұндай бағдарламасы бар ЖОО әзірге жоқ — ЖОО-ның ресми сайттарынан ізде.",
+    stepRequirements: (plan: string) => `Түсу талаптары мен мерзімдерді ЖОО бетінен және ${plan} бөлімінен тексер. Нақты шарттарды әрдайым ЖОО-ның ресми сайтынан нақтыла.`,
+    stepsAdvice: "Жалпы кеңес (бұл Next Path деректері емес): үйірмелер, олимпиадалар, онлайн-курстар немесе маманмен сөйлесу бұл сенікі ме, жоқ па, түсінуге көмектеседі.",
+    stepsAsk: (test: string) => `Қай мамандық туралы айтып отырсың? Атын жаз — Next Path деректері бойынша қадамдарды көрсетемін. Әлі шешпесең, ${test} бастан.`,
     thanks: "Оқасы жоқ! Тағы сұрақ болса — жаз.",
     crisis:
       "Саған қазір қиын болғанына қатты өкінемін. Сен жалғыз емессің — бұл туралы жақын адамыңа айту маңызды: ата-анаңа, сенімді ересекке, мұғалімге немесе мектеп психологына. Қазақстанның балаларға арналған сенім телефонына **150** тегін және жасырын қоңырау шалуға болады. Қазір қауіп болса — **112** нөміріне хабарлас.",
@@ -226,6 +260,7 @@ const L = {
     applyNote: (s: string) => `Құжаттар ЖОО-ның қабылдау комиссиясы арқылы тапсырылады. Next Path-та таңдалған ЖОО талаптарын ${s} бөлімінде жинауға болады.`,
     humanNote: "Адаммен сөйлесу керек болса — мектеп психологына немесе кәсіби бағдар беру маманына жүгін.",
     paymentNote: "Сайт тегін, барлық бөлімдер ашық.",
+    paymentAnswer: (test: string) => `Жоқ, Next Path тегін: тіркелу де, төлем де қажет емес, барлық бөлімдер ашық. ${test} бастауға болады.`,
     chancesNote: (s: string) => `Мен түсу мүмкіндігін бағаламаймын. ЖОО талаптарын олардың беттерінен және ${s} бөлімінен қара.`,
     instead: "Сайтта бары",
     start: (test: string, dirs: string, map: string) =>
@@ -327,6 +362,22 @@ const L = {
 - show where to study and what you need to apply, based on Next Path's data.
 
 What would you like to know?`,
+    purpose: (test: string, dirs: string, profs: string, unis: string, plan: string, map: string) =>
+      `Next Path is a free career guidance platform for students in grades 8–11 and applicants in Kazakhstan. It helps you explore professions on your own and make more informed decisions about your future:
+- take the ${test} to see which directions suit you;
+- explore ${dirs} and ${profs}: what specialists do, which skills and school subjects they need;
+- find ${unis}, their programmes and admission requirements;
+- put together an ${plan} and see the whole route on the ${map}.
+
+No sign-up needed. The easiest place to start is the test.`,
+    stepsIntro: (name: string) => `The path to becoming a **${name}**, step by step (from Next Path's data):`,
+    stepSubjects: (list: string) => `Focus on these school subjects: ${list}.`,
+    stepSkills: (list: string) => `Develop these skills: ${list}.`,
+    stepUniversities: (links: string) => `Choose a university. Next Path has: ${links}. Save the ones you like to favourites.`,
+    stepNoUniversities: "Next Path has no universities with such programmes yet — look at universities' official websites.",
+    stepRequirements: (plan: string) => `Check admission requirements and deadlines on the university's page and in the ${plan}. Always confirm the exact conditions on the university's official website.`,
+    stepsAdvice: "General advice (not Next Path data): try it out early — clubs, olympiads, online courses or a talk with a specialist will help you see whether it's for you.",
+    stepsAsk: (test: string) => `Which profession do you mean? Name it and I'll lay out the steps from Next Path's data. If you haven't decided yet, start with the ${test}.`,
     thanks: "You're welcome! Ask me anytime.",
     crisis:
       "I'm really sorry you're going through this. You're not alone, and it matters to tell someone close to you: a parent, a trusted adult, a teacher or the school psychologist. You can call Kazakhstan's free, anonymous children's helpline on **150** — they will listen and help. If you're in danger right now, call **112**.",
@@ -344,6 +395,7 @@ What would you like to know?`,
     applyNote: (s: string) => `Applications go through the university's admissions office. On Next Path you can collect the requirements of the universities you chose in ${s}.`,
     humanNote: "If you'd like to talk to a person, ask your school psychologist or careers adviser.",
     paymentNote: "The site is free and every section is open.",
+    paymentAnswer: (test: string) => `No, Next Path is free: no sign-up or payment, every section is open. You can start with the ${test}.`,
     chancesNote: (s: string) => `I don't estimate admission chances. See each university's requirements on its page and in ${s}.`,
     instead: "What the site has",
     start: (test: string, dirs: string, map: string) =>
@@ -449,17 +501,24 @@ const P = Object.fromEntries(Object.entries({
   account: /(регистрац|зарегистр|личн\w* кабинет|аккаунт|войти в|логин|парол|тіркел|жеке кабинет|sign ?up|register|account|log ?in|password)/,
   apply: /(подать документ|подач\w* документ|отправить документ|онлаин.?подач|подать заявлени|құжат тапсыр|өтініш бер|apply online|submit (my )?(documents|application)|send (my )?documents)/,
   human: /(живым|живои человек|с человеком|оператор|менеджер|консультаци\w* специалист|тірі маман|адаммен сөилес|адаммен сөйлес|real person|human|live (chat|consult))/,
-  payment: /(подписк|платн\w* (ли )?(сайт|доступ|платформ)|сколько стоит (сайт|платформ|доступ)|сайт ақылы|ақылы ма|subscription|premium|is (the site|it) free|paid access)/,
+  payment:
+    /(подписк|платн\w* (ли )?(саит|сайт|доступ|платформ)|(саит|сайт|платформ\w*|next ?path|доступ)\W+(\w+\W+)?(платн|бесплатн)|это бесплатн|сколько стоит (саит|сайт|платформ|доступ|пользован)|(саит|сайт|платформа) ақылы|ақылы ма|тегін бе|subscription|premium|is (the site|it|this|next ?path) free|paid access)/,
   chances: /(шанс|вероятност|поступлю ли|пройду ли|смогу ли поступ|мүмкіндіг|түсе аламын ба|chance|will i get in|can i get in)/,
   profile:
     /(по (моему|моим) (тест|результат)|по тесту|мои результат|мне подход|подход\w* мне|подходит ли мне|тест нәтиже|тестім|маған сәикес|маған сәйкес|маған қаи|my (test|result)|suit(s)? me|fit(s)? me|right for me)/,
   compare: /(отлича|отличи|разниц|сравн|чем .+ от|айырмашы|салыстыр|differ|compare|\bvs\b|versus)/,
   interest: /(нравит|люблю|интерес|увлека|хорошо (дается|даются|получается)|ұнаиды|ұнайды|қызық|жақсы көрем|i (like|love|enjoy)|interested in|good at)/,
   vague:
-    /(как\w* професси\w* выбрать|кем (стать|быть|работать)|не знаю кем|выбрать професси|помоги\w* (выбрать|определиться)|не могу (выбрать|определиться)|қандаи мамандық|қандай мамандық|кім болам|мамандық таңда|what (profession|career|job)|which (profession|career|job)|choose a (profession|career)|what should i (do|become|study))/,
+    /(как\w* професси\w* выбрать|кем (мне |же )?(стать|быть|работать|пойти)|не знаю кем|выбрать професси|помоги\w* (выбрать|определиться)|не могу (выбрать|определиться)|қандаи мамандық|қандай мамандық|кім болам|мамандық таңда|what (profession|career|job)|which (profession|career|job)|choose a (profession|career)|what should i (do|become|study))/,
   math: /(математ|алгебр|геометр|math)/,
   start:
     /(с чего начать|как пользоваться|что умеет (саит|сайт)|что такое next|что это за (саит|сайт)|для чего (саит|сайт)|неден бастау|қалаи пайдалан|қалай пайдалан|where (do i |should i |to )?start|how (do i |to )use|what is next ?path|what can (this|the) site)/,
+  purpose:
+    /((для чего|зачем|для кого|кому|о чем|что умеет|что (это|такое)|в чем смысл|назначени|чем (полез|помож|помога)|не үшін|не үшін керек|кімге арналған|не істеиді|не істейді|what (is|does|for)|why|who is|purpose|what can).{0,40}(платформ|саит|сайт|next ?path|некст|проект|сервис|ресурс|platform|site|website|project|service))|((платформ|саит|сайт|next ?path|проект|platform|site|website).{0,30}(для чего|зачем|нужна|нужен|не үшін|for what|what for|is for))/,
+  self: /(кто ты|ты кто|что ты (умеешь|можешь)|чем (ты )?(можешь|сможешь) помочь|как ты (работаешь|отвечаешь)|сен кімсің|не істеи аласың|не істей аласың|who are you|what can you do|how can you help)/,
+  generic: /(университетах|университетов|университеты|вузах|вузов|вузы|разных|всех|университеттер|жоо-лар|universities|colleges)/,
+  steps:
+    /(как (мне )?стать|что нужно,? чтобы стать|чтобы стать|какие шаги|что делать дальше|план действии|последовательност|қалаи болуға|қалай болуға|болу үшін не|қандаи қадам|қандай қадам|how (do i |to |can i )?become|what steps|next steps)/,
   results: /(результат|нәтиже|results)/,
   test: /(тест|test)/,
   careerMap: /(карьерн\w* карт|карт\w* карьер|мансап карта|career ?(map|path))/,
@@ -480,7 +539,7 @@ const P = Object.fromEntries(Object.entries({
   exams: /(экзамен|\bент\b|ielts|\bsat\b|сдава|емтихан|exam|entrance)/,
   deadline: /(срок|дедлаин|когда .*(пода|поступ|прием)|мерзім|deadline|when (to|do|can|should) (i )?apply)/,
   contacts: /(контакт|телефон|почт|email|e-mail|адрес|сайт (вуза|университета)|официальн\w* сайт|байланыс|мекенжаи|мекенжай|contact|phone|website|address)/,
-  programs: /(программ|специальност|факультет|бағдарлама|program|major|faculty|degree)/,
+  programs: /(программ(а|ы|у|е|ои|ах|ам|ами)?\b|специальност|факультет|бағдарлама|programm?e?s?\b|major|faculty|degree)/,
   subjects: /(предмет|пән|subject)/,
   skills: /(навык|качеств|умени|знани|нужно знать|уметь|дағды|қасиет|skill|qualit|need to know)/,
   salary: /(зарплат|зарабат|доход|получа|жалақы|табыс|salary|earn|income|pay)/,
@@ -664,6 +723,24 @@ function directionAnswer(base: KnowledgeBase, direction: DirectionDoc, n: string
   );
 }
 
+function stepsAnswer(base: KnowledgeBase, profession: ProfessionDoc, t: Texts, lang: Lang): string {
+  const subjects = pickList(profession.schoolSubjects, lang);
+  const skills = pickList(profession.skills, lang).slice(0, 5);
+  const universities = universitiesForProfession(base, profession, 4);
+  const steps = [
+    subjects.length > 0 ? t.stepSubjects(subjects.join(", ")) : null,
+    skills.length > 0 ? t.stepSkills(skills.join(", ")) : null,
+    universities.length > 0 ? t.stepUniversities(universities.map((university) => universityLink(university, lang)).join(", ")) : t.stepNoUniversities,
+    t.stepRequirements(section("/admission-plan", lang))
+  ].filter((step): step is string => step !== null);
+  return paragraphs(
+    t.stepsIntro(pick(profession.name, lang)),
+    steps.map((step, index) => `${index + 1}. ${step}`).join("\n"),
+    t.stepsAdvice,
+    t.openPage(pick(profession.name, lang), `/professions/${profession.slug}`)
+  );
+}
+
 function compareAnswer(professions: ProfessionDoc[], t: Texts, lang: Lang): string {
   const [first, second] = professions;
   const row = (profession: ProfessionDoc) =>
@@ -731,6 +808,16 @@ function directionsBySubject(base: KnowledgeBase, n: string): {subject: string; 
 }
 
 function platformAnswer(n: string, base: KnowledgeBase, t: Texts, lang: Lang): string | null {
+  if (has(P.purpose, n)) {
+    return t.purpose(
+      section("/test", lang),
+      section("/directions", lang),
+      section("/professions", lang),
+      section("/universities", lang),
+      section("/admission-plan", lang),
+      section("/career-path", lang)
+    );
+  }
   if (has(P.start, n)) return t.start(section("/test", lang), section("/directions", lang), section("/career-path", lang));
   if (has(P.careerMap, n)) return t.careerMap(section("/career-path", lang));
   if (has(P.admissionPlan, n)) return t.admissionPlan(section("/admission-plan", lang));
@@ -757,6 +844,8 @@ function missingFeatureAnswer(n: string, t: Texts, lang: Lang, foundProfession: 
     [P.payment, t.features.payment, t.paymentNote],
     [P.chances, t.features.chances, t.chancesNote(section("/admission-plan", lang))]
   ];
+  // "Is the site paid?" deserves a plain "no", not a missing-feature notice.
+  if (has(P.payment, n)) return t.paymentAnswer(section("/test", lang));
   const hit = notes.find(([pattern]) => has(pattern, n));
   if (!hit) return null;
   const [, what, note] = hit;
@@ -779,6 +868,59 @@ function directionByShortName(base: KnowledgeBase, n: string): DirectionDoc | un
 
 function anyMatch(matches: Matches): boolean {
   return matches.directions.length + matches.professions.length + matches.universities.length > 0;
+}
+
+/** Records whose name (not only description) contains a word of the question. */
+function namedMatches(matches: Matches, question: string): Matches {
+  const stems = questionStems(question);
+  const inName = (names: string[]) => {
+    const haystack = normalizeForSearch(names.join(" | "));
+    return stems.some((stem) => haystack.includes(stem));
+  };
+  return {
+    directions: matches.directions.filter((direction) => inName([direction.name.ru, direction.name.kk, direction.name.en])),
+    professions: matches.professions.filter((profession) =>
+      inName([profession.name.ru, profession.name.kk, profession.name.en, ...profession.specialties])
+    ),
+    universities: matches.universities.filter((university) =>
+      inName([university.name.ru, university.name.kk, university.name.en, university.city.ru, university.city.kk, university.city.en])
+    )
+  };
+}
+
+/** Questions about the site and its sections (module 1). */
+function isSiteQuestion(n: string): boolean {
+  return [P.purpose, P.start, P.careerMap, P.admissionPlan, P.favourites, P.language, P.filters, P.reviews, P.about, P.search].some((pattern) =>
+    has(pattern, n)
+  ) || (has(P.test, n) && !has(P.profile, n));
+}
+
+/** "Сколько стоит?", "какие экзамены?" — a question about some record's details. */
+function asksRecordAspect(n: string): boolean {
+  return [P.cost, P.exams, P.grants, P.deadline, P.contacts, P.programs, P.subjects, P.skills, P.salary, P.where, P.prosCons, P.demand, P.whatDo].some(
+    (pattern) => has(pattern, n)
+  );
+}
+
+/** The record the conversation is about: the latest question that named one, else the latest reply. */
+function conversationSubject(base: KnowledgeBase, previous: ChatTurn[]): Matches {
+  const empty: Matches = {directions: [], professions: [], universities: []};
+  for (const turn of [...previous].reverse().slice(0, 4)) {
+    const matches = namedMatches(findMatches(base, turn.role === "assistant" ? turn.content.slice(0, 300) : turn.content), turn.content);
+    if (matches.universities.length > 0) return {...empty, universities: matches.universities.slice(0, 1)};
+    if (matches.professions.length > 0) return {...empty, professions: matches.professions.slice(0, 1)};
+    if (matches.directions.length > 0) return {...empty, directions: matches.directions.slice(0, 1)};
+  }
+  return empty;
+}
+
+function pageSubject(base: KnowledgeBase, pathname: string): Matches {
+  const context = pageContext(pathname);
+  const empty: Matches = {directions: [], professions: [], universities: []};
+  if (!context || context.kind === "section") return empty;
+  if (context.kind === "profession") return {...empty, professions: base.professions.filter((item) => item.slug === context.slug)};
+  if (context.kind === "university") return {...empty, universities: base.universities.filter((item) => item.slug === context.slug)};
+  return {...empty, directions: base.directions.filter((item) => item.slug === context.slug)};
 }
 
 /**
@@ -807,41 +949,47 @@ export function localReply({
   if (has(P.crisis, n)) return t.crisis;
   if (has(P.offTopic, n)) return t.offTopic;
 
-  let matches = findMatches(base, question);
+  // Step 1 of the specification: decide what kind of question this is.
+  // Records count as "named" only when a word of the question is in their
+  // name; a word that merely occurs in a description does not override a
+  // question about the site.
+  const direct = findMatches(base, question);
+  const named = namedMatches(direct, question);
+  const previous = messages.slice(0, -1);
 
-  // A follow-up ("а сколько там стоит?") or "this page" refers to the record
-  // the conversation or the page is about.
+  if (!anyMatch(named)) {
+    if (has(P.self, n)) return t.greeting;
+    if (has(P.greeting, n) && n.length < 40) return t.greeting;
+    if (has(P.thanks, n) && n.length < 60) return t.thanks;
+  }
+
+  // Module 1 — features that do not exist are named as such.
+  const missingFeature = missingFeatureAnswer(n, t, lang, named.professions.length > 0);
+  if (missingFeature) return missingFeature;
+
+  // Module 1 — questions about the platform itself are answered from the site
+  // guide, whatever the conversation was about before.
+  if (!anyMatch(named) && isSiteQuestion(n)) {
+    const platform = platformAnswer(n, base, t, lang);
+    if (platform) return platform;
+  }
+
+  let matches = anyMatch(named) ? named : direct;
+
+  // A follow-up ("а сколько там стоит?", "какие там экзамены?") refers to the
+  // record the conversation is about; a question about this page, to the page.
   if (!anyMatch(matches)) {
-    const previous = messages.slice(0, -1);
-    const isFollowUp = previous.length > 0 && (has(P.followUp, n) || n.length < 40);
-    if (isFollowUp) {
-      const earlierQuestion = [...previous].reverse().find((turn) => turn.role === "user")?.content ?? "";
-      const lastReply = [...previous].reverse().find((turn) => turn.role === "assistant")?.content.slice(0, 300) ?? "";
-      const fromQuestion = findMatches(base, earlierQuestion);
-      matches = anyMatch(fromQuestion) ? fromQuestion : findMatches(base, lastReply);
-      // Keep only the main subject of the conversation.
-      if (matches.universities.length > 0) matches = {directions: [], professions: [], universities: matches.universities.slice(0, 1)};
-      else if (matches.professions.length > 0) matches = {directions: [], professions: matches.professions.slice(0, 1), universities: []};
-      else matches = {...matches, directions: matches.directions.slice(0, 1)};
+    const asksAboutRecord = asksRecordAspect(n);
+    const aboutAll = has(P.generic, n);
+    if (previous.length > 0 && (has(P.followUp, n) || (asksAboutRecord && !aboutAll)) && !has(P.here, n)) {
+      matches = conversationSubject(base, previous);
     }
-    if (!anyMatch(matches) && (has(P.here, n) || !isFollowUp)) {
-      const context = pageContext(pathname);
-      if (context && context.kind !== "section" && (has(P.here, n) || has(P.cost, n) || has(P.exams, n) || has(P.subjects, n) || has(P.salary, n) || has(P.where, n))) {
-        if (context.kind === "profession") matches.professions = base.professions.filter((item) => item.slug === context.slug);
-        if (context.kind === "university") matches.universities = base.universities.filter((item) => item.slug === context.slug);
-        if (context.kind === "direction") matches.directions = base.directions.filter((item) => item.slug === context.slug);
-      }
+    if (!anyMatch(matches) && (has(P.here, n) || asksAboutRecord)) {
+      matches = pageSubject(base, pathname);
     }
   }
 
   const found = anyMatch(matches);
-
-  if (!found && has(P.greeting, n) && n.length < 40) return t.greeting;
-  if (!found && has(P.thanks, n) && n.length < 60) return t.thanks;
-
-  // Module 1 — features that do not exist are named as such.
-  const missingFeature = missingFeatureAnswer(n, t, lang, matches.professions.length > 0);
-  if (missingFeature) return missingFeature;
 
   // Module 2 — the visitor's own test result.
   if (has(P.profile, n)) return profileAnswer(base, profile, t, lang);
@@ -855,6 +1003,12 @@ export function localReply({
     if (pool.length >= 2) return t.compareAsk(pool.slice(0, 8).map((profession) => pick(profession.name, lang)).join(", "));
   }
 
+  // Module 3 — the sequence of steps towards a profession.
+  if (has(P.steps, n)) {
+    if (matches.professions.length > 0) return stepsAnswer(base, matches.professions[0], t, lang);
+    if (!found) return t.stepsAsk(section("/test", lang));
+  }
+
   // Modules 2 and 3 — catalogue records.
   if (matches.universities.length > 0 && !(matches.professions.length > 0 && has(P.where, n))) {
     const [first, ...rest] = matches.universities;
@@ -863,6 +1017,17 @@ export function localReply({
       rest.length > 0 ? `${t.alsoFound}: ${rest.slice(0, 3).map((university) => universityLink(university, lang)).join(", ")}.` : null
     );
   }
+  // "Предметы для медицины": the direction is named; a profession that only
+  // matched through a specialty ("Общая медицина") is not what was asked.
+  const professionNamed = matches.professions.some((profession) =>
+    questionStems(question).some((stem) =>
+      normalizeForSearch([profession.name.ru, profession.name.kk, profession.name.en].join(" | ")).includes(stem)
+    )
+  );
+  if (matches.directions.length > 0 && !professionNamed && named.directions.length > 0) {
+    return directionAnswer(base, matches.directions[0], n, t, lang);
+  }
+
   if (matches.professions.length > 0) {
     const [first, ...rest] = matches.professions;
     return paragraphs(
