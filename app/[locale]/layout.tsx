@@ -4,11 +4,13 @@ import {notFound} from "next/navigation";
 import {AssistantWidget} from "@/components/assistant/assistant-widget";
 import {SiteFooter} from "@/components/layout/site-footer";
 import {SiteHeader} from "@/components/layout/site-header";
+import {Intro} from "@/components/motion/intro";
+import {MotionProvider} from "@/components/motion/motion-provider";
 import {routing} from "@/i18n/routing";
 
 export default async function LocaleLayout({children, params}: Readonly<{children: React.ReactNode; params: Promise<{locale: string}>}>) {
   const {locale} = await params;
   if (!routing.locales.includes(locale as (typeof routing.locales)[number])) notFound();
   const messages = await getMessages();
-  return <NextIntlClientProvider locale={locale} messages={messages}><SiteHeader /><main className="flex-1">{children}</main><SiteFooter /><AssistantWidget /></NextIntlClientProvider>;
+  return <NextIntlClientProvider locale={locale} messages={messages}><Intro /><MotionProvider /><SiteHeader /><main className="flex-1">{children}</main><SiteFooter /><AssistantWidget /></NextIntlClientProvider>;
 }

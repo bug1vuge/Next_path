@@ -1,4 +1,5 @@
 import type {ReactNode} from "react";
+import {SplitText} from "@/components/motion/split-text";
 
 export function PageHeader({
   eyebrow,
@@ -13,13 +14,27 @@ export function PageHeader({
 }) {
   return (
     <header className="container-page pt-10 pb-6 sm:pt-14">
-      {eyebrow ? <p className="text-sm font-bold text-brand">{eyebrow}</p> : null}
+      {eyebrow ? (
+        <p className="text-sm font-bold text-brand" data-reveal>
+          {eyebrow}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">{title}</h1>
-          {description ? <p className="mt-3 max-w-2xl text-base leading-7 text-muted">{description}</p> : null}
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl" data-reveal="split">
+            <SplitText text={title} />
+          </h1>
+          {description ? (
+            <p className="mt-3 max-w-2xl text-base leading-7 text-muted" data-reveal>
+              {description}
+            </p>
+          ) : null}
         </div>
-        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        {actions ? (
+          <div className="flex flex-wrap gap-2" data-reveal>
+            {actions}
+          </div>
+        ) : null}
       </div>
     </header>
   );
@@ -35,7 +50,7 @@ export function Section({
   action?: ReactNode;
 }) {
   return (
-    <section className="mt-10">
+    <section className="mt-10" data-reveal>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-extrabold tracking-tight sm:text-2xl">{title}</h2>
         {action}

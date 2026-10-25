@@ -67,9 +67,9 @@ export function DirectionCard({direction}: {direction: DirectionCardData}) {
   const Icon = ICONS[direction.icon] ?? Compass;
 
   return (
-    <article className="flex flex-col rounded-3xl border border-border bg-surface p-6 transition-colors duration-150 hover:border-brand-soft">
+    <article className="np-card group flex flex-col rounded-3xl border border-border bg-surface p-6 transition-[translate,border-color,box-shadow] duration-500 ease-[cubic-bezier(.22,.9,.25,1)] hover:-translate-y-1 hover:border-brand-soft hover:shadow-[0_24px_48px_-24px_rgb(28_42_57/0.28)]" data-reveal>
       <div className="flex items-start justify-between gap-3">
-        <span className="grid size-11 place-items-center rounded-2xl bg-brand-soft text-brand">
+        <span className="grid size-11 place-items-center rounded-2xl bg-brand-soft text-brand transition-[rotate,scale,background-color,color] duration-500 ease-[cubic-bezier(.22,.9,.25,1)] group-hover:-rotate-6 group-hover:scale-110 group-hover:bg-brand group-hover:text-white">
           <Icon aria-hidden size={22} />
         </span>
         <FavouriteButton compact kind="direction" slug={direction.slug} />
@@ -98,7 +98,7 @@ export function ProfessionCard({profession, match}: {profession: ProfessionCardD
   const tCommon = useTranslations("common");
 
   return (
-    <article className="flex flex-col rounded-3xl border border-border bg-surface p-6 transition-colors duration-150 hover:border-brand-soft">
+    <article className="np-card group flex flex-col rounded-3xl border border-border bg-surface p-6 transition-[translate,border-color,box-shadow] duration-500 ease-[cubic-bezier(.22,.9,.25,1)] hover:-translate-y-1 hover:border-brand-soft hover:shadow-[0_24px_48px_-24px_rgb(28_42_57/0.28)]" data-reveal>
       <div className="flex items-start justify-between gap-3">
         <Link className="text-xs font-bold text-brand hover:underline" href={`/directions/${profession.directionSlug}`}>
           {profession.directionName}
@@ -151,7 +151,7 @@ export function UniversityCard({university}: {university: UniversityCardData}) {
   const tCommon = useTranslations("common");
 
   return (
-    <article className="flex flex-col rounded-3xl border border-border bg-surface p-6 transition-colors duration-150 hover:border-brand-soft">
+    <article className="np-card group flex flex-col rounded-3xl border border-border bg-surface p-6 transition-[translate,border-color,box-shadow] duration-500 ease-[cubic-bezier(.22,.9,.25,1)] hover:-translate-y-1 hover:border-brand-soft hover:shadow-[0_24px_48px_-24px_rgb(28_42_57/0.28)]" data-reveal>
       <div className="flex items-start justify-between gap-3">
         <span className="inline-flex items-center gap-1 text-xs font-bold text-muted">
           <MapPin aria-hidden size={14} />
@@ -184,7 +184,7 @@ export function UniversityCard({university}: {university: UniversityCardData}) {
         <Link className={buttonClass("secondary")} href={`/universities/${university.slug}`}>
           {tCommon("more")}
         </Link>
-        <span className="grid size-11 place-items-center rounded-full bg-soft text-muted">
+        <span className="grid size-11 place-items-center rounded-full bg-soft text-muted transition-[rotate,scale,color] duration-500 ease-[cubic-bezier(.22,.9,.25,1)] group-hover:-rotate-6 group-hover:scale-110 group-hover:text-brand">
           <GraduationCap aria-hidden size={20} />
         </span>
       </div>

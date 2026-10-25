@@ -20,7 +20,7 @@ export function ReviewForm() {
   const [state, action, pending] = useActionState(publishReview, INITIAL);
 
   return (
-    <form action={action} className="scroll-mt-6 rounded-3xl border border-border bg-surface p-6" id="review-form" noValidate>
+    <form action={action} className="scroll-mt-28 rounded-3xl border border-border bg-surface p-6" id="review-form" noValidate>
       <h2 className="text-xl font-extrabold">{t("formTitle")}</h2>
       <p className="mt-1 text-sm leading-6 text-muted">{t("publicNote")}</p>
 

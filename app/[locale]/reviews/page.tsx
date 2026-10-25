@@ -19,7 +19,7 @@ export default async function ReviewsPage({params}: {params: Promise<{locale: Lo
       <PageHeader description={t("subtitle")} title={t("title")} />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:items-start">
-        <div className="lg:sticky lg:top-6">
+        <div className="transition-[top] duration-500 lg:sticky lg:top-[calc(var(--header-offset,0px)+1.5rem)]">
           <ReviewForm />
         </div>
 

@@ -18,6 +18,20 @@ export const metadata: Metadata = {
 };
 const inter = Inter({subsets: ["latin", "cyrillic", "cyrillic-ext"], variable: "--font-inter", display: "swap"});
 
+/**
+ * Runs before the first paint: marks the page as animated (so content waiting
+ * for its reveal is hidden from the start instead of flashing) unless the
+ * visitor prefers reduced motion, and shows the intro once per tab session.
+ */
+const motionScript = `try{var d=document.documentElement;if(!matchMedia("(prefers-reduced-motion: reduce)").matches){d.classList.add("js-motion");if(!sessionStorage.getItem("np-intro")){d.classList.add("intro");sessionStorage.setItem("np-intro","1")}}}catch(e){}`;
+
 export default function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
-  return <html lang="ru" className={inter.variable}><body className="flex min-h-screen flex-col">{children}</body></html>;
+  return (
+    <html className={inter.variable} lang="ru" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{__html: motionScript}} />
+      </head>
+      <body className="flex min-h-screen flex-col">{children}</body>
+    </html>
+  );
 }

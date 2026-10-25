@@ -25,7 +25,7 @@ export function ProgressRail({progress}: {progress: CareerProgress}) {
   const t = useTranslations("careerPath");
 
   return (
-    <div className="sticky top-0 z-20 border-b border-border bg-canvas/95 py-3 backdrop-blur">
+    <div className="sticky top-[var(--header-offset,0px)] z-20 border-b border-border bg-canvas/95 py-3 backdrop-blur transition-[top] duration-500 ease-[cubic-bezier(.22,.9,.25,1)]">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-sm font-extrabold">{t("progressTitle")}</p>
         <p className="text-sm font-semibold text-muted">
