@@ -21,6 +21,8 @@ DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/next_path?schema=public"
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | PostgreSQL connection string used by Prisma at build and run time. |
+| `ANTHROPIC_API_KEY` | for the assistant | Key for the site assistant's language model. Without it the chat button still appears and answers that the assistant is unavailable. |
+| `ASSISTANT_MODEL` | no | Model id for the assistant; defaults to `claude-haiku-5-5`. |
 
 Create the database and apply migrations:
 
@@ -156,6 +158,7 @@ Headers are Prisma field names. Empty cells become `null`. List columns use a JS
 /[locale]/search               grouped results across every entity
 /[locale]/reviews              visitors' reviews of the site, and the form to leave one
 /[locale]/about                what the project is and where the data comes from
+/api/assistant                 one chat turn of the site assistant (POST, streamed reply)
 ```
 
 Filters and sorting are URL search parameters translated into Prisma `where`
@@ -208,6 +211,41 @@ The form posts to a server action (`app/[locale]/reviews/actions.ts`); the rules
 - at most 3 reviews per sender (by IP) in 10 minutes. The count lives in the server's memory, which suits a single Railway instance and resets on each deploy.
 
 There is no moderation queue. To take a review down, set `hidden` to `true` on its row — for example in `pnpm exec prisma studio`, or with `UPDATE "SiteReview" SET hidden = true WHERE id = '…';` in the Railway database. A hidden review stays in the table but is never shown.
+
+## Site assistant
+
+A chat button is pinned to the bottom-right corner of every page (it is part of
+`app/[locale]/layout.tsx`). It opens a panel where a visitor asks questions and
+the assistant answers from the platform's own data. The behaviour follows the
+team's specification "Структура ИИ-ассистента платформы Next Path": three
+modules — **using the site**, **choosing a profession**, **the educational
+path** — over one knowledge base.
+
+- **No second copy of the data.** `lib/assistant/catalogue.ts` reads the same
+  directions, professions, universities, programs and admission rows the pages
+  show (a five-minute in-memory snapshot, so a re-import is picked up quickly).
+  `lib/assistant/site-guide.ts` lists the site's sections; a feature missing
+  from that list does not exist, and the assistant says so.
+- **Answers are grounded.** For each question `lib/assistant/knowledge.ts`
+  picks the matching records (by name in any of the three languages, tolerant
+  of word endings), the record of the page the visitor is on, and the
+  visitor's test result and favourites from the browser. Empty fields are left
+  out, so there is nothing to "fill in"; the instructions in
+  `lib/assistant/prompt.ts` forbid inventing universities, scores, deadlines or
+  requirements and ask the assistant to separate facts from Next Path from
+  general advice, to ask a clarifying question when a request is vague, and to
+  link to the relevant page.
+- **Safety.** The API key is read only on the server. Requests are validated
+  (`lib/assistant/input.ts`, unit-tested): at most 800 characters per question,
+  the last 12 messages of history, and 20 questions per sender in 10 minutes
+  (in memory, like the reviews limit). Replies are rendered from a small
+  Markdown subset as React elements — no HTML from the model reaches the page.
+- **Conversation** lives in the tab's `sessionStorage`: it survives moving
+  between pages and switching language and is forgotten when the tab closes.
+
+The model is Anthropic's Claude, called with `fetch` (no SDK). To enable the
+assistant on Railway, add `ANTHROPIC_API_KEY` to the service's variables and
+redeploy; `ASSISTANT_MODEL` optionally picks another model.
 
 ## Tests
 
@@ -295,3 +333,5 @@ railway run pnpm db:import:sheet
 | `PORT` | Railway | Injected; `next start` binds to it. |
 | `RAILWAY_PUBLIC_DOMAIN` | Railway | Absolute base for Open Graph images. |
 | `NEXT_PUBLIC_SITE_URL` | you, optional | Overrides the base on a custom domain. |
+| `ANTHROPIC_API_KEY` | you | Enables the site assistant. |
+| `ASSISTANT_MODEL` | you, optional | Overrides the assistant's model. |

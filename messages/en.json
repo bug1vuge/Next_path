@@ -364,5 +364,56 @@
     "text": "This page does not seem to exist. Start from the home page or open the directions catalogue.",
     "home": "Go home",
     "directions": "Directions"
+  },
+  "assistant": {
+    "open": "Open the Next Path assistant",
+    "close": "Close the assistant",
+    "title": "Next Path assistant",
+    "subtitle": "I answer from the site's materials",
+    "greeting": "Hi! I'm the Next Path assistant. I can help you find your way around the site, explore professions and understand where and how to apply. Where shall we start?",
+    "chooseTopic": "Pick a topic or ask your own question",
+    "backToTopics": "All topics",
+    "topics": {
+      "platform": {
+        "title": "Using the site",
+        "description": "Sections, the test, the career map, favourites",
+        "q1": "Where do I start on Next Path?",
+        "q2": "What does the career map show?",
+        "q3": "How do I save a profession to favourites?"
+      },
+      "career": {
+        "title": "Choosing a profession",
+        "description": "Professions, skills, comparing options",
+        "q1": "I like maths but don't know which profession to choose",
+        "q2": "Which professions fit my test result?",
+        "q3": "How do similar IT professions differ?"
+      },
+      "education": {
+        "title": "Studying and applying",
+        "description": "Universities, subjects, exams, grants",
+        "q1": "Which subjects do I need to study medicine?",
+        "q2": "Where can I study to become a programmer?",
+        "q3": "How can I find out about university grants?"
+      }
+    },
+    "placeholder": "Type your question…",
+    "inputLabel": "Your question for the assistant",
+    "send": "Send",
+    "stop": "Stop the answer",
+    "reset": "Start over",
+    "thinking": "The assistant is thinking…",
+    "you": "You",
+    "assistant": "Assistant",
+    "charsLeft": "Characters left: {count}",
+    "disclaimer": "The assistant can make mistakes. Check admission deadlines and requirements on the universities' official websites.",
+    "retry": "Try again",
+    "stopped": "Answer stopped.",
+    "errors": {
+      "unavailable": "The assistant is unavailable right now. Try again later — meanwhile, have a look around the site.",
+      "tooMany": "Too many questions in a row. Wait a couple of minutes and ask again.",
+      "tooLong": "That question is too long — please shorten it.",
+      "failed": "Couldn't get an answer. Please try again.",
+      "offline": "Looks like you're offline. Check your connection and try again."
+    }
   }
 }
