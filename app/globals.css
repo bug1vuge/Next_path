@@ -104,9 +104,13 @@ body { min-height: 100vh; background: var(--color-canvas); color: var(--color-in
 /* Hidden until the motion provider animates them in (Web Animations API, fill: both). */
 .js-motion [data-reveal]:not([data-reveal="split"]) { opacity: 0; }
 
-/* headings rise word by word */
-.np-word { display: inline-block; overflow: hidden; padding-bottom: .12em; margin-bottom: -.12em; vertical-align: top; }
-.np-word > span { display: inline-block; }
+/* Long words ("Профориентационный" on a 320px phone) hyphenate instead of
+   running off the screen; if no hyphenation point exists they still break. */
+h1, h2, h3 { overflow-wrap: break-word; hyphens: auto; }
+
+/* headings rise word by word; a word's mask never gets wider than the line */
+.np-word { max-width: 100%; display: inline-block; overflow: hidden; padding-bottom: .12em; margin-bottom: -.12em; vertical-align: top; }
+.np-word > span { display: inline-block; max-width: 100%; }
 .js-motion [data-reveal="split"] .np-word > span { transform: translateY(115%) rotate(4deg); }
 @keyframes np-word-up { from { transform: translateY(115%) rotate(4deg); } to { transform: none; } }
 

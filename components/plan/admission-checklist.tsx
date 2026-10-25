@@ -43,7 +43,7 @@ export function AdmissionChecklist({universities}: {universities: AdmissionUnive
   const saved = universities.filter((university) => savedSlugs.has(university.slug));
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_1.1fr]">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_1.1fr]">
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold text-muted">{t("done", {done: done.size, total: STEPS.length})}</p>
@@ -58,7 +58,7 @@ export function AdmissionChecklist({universities}: {universities: AdmissionUnive
           ) : null}
         </div>
 
-        <ul className="mt-4 grid gap-2">
+        <ul className="mt-4 grid grid-cols-1 gap-2">
           {STEPS.map((step) => {
             const isDone = done.has(step.id);
             return (
@@ -74,7 +74,7 @@ export function AdmissionChecklist({universities}: {universities: AdmissionUnive
                   <Check aria-hidden size={16} />
                   <span className="sr-only">{t(step.labelKey)}</span>
                 </button>
-                <span className={`flex-1 text-sm font-semibold ${isDone ? "text-muted line-through" : ""}`}>
+                <span className={`min-w-0 flex-1 text-sm font-semibold break-words hyphens-auto ${isDone ? "text-muted line-through" : ""}`}>
                   {t(step.labelKey)}
                 </span>
                 <Link className="text-sm font-bold text-brand hover:underline" href={step.href}>

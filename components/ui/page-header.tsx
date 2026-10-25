@@ -20,8 +20,8 @@ export function PageHeader({
         </p>
       ) : null}
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl" data-reveal="split">
+        <div className="min-w-0">
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight max-[359px]:text-[1.4rem] sm:text-4xl" data-reveal="split">
             <SplitText text={title} />
           </h1>
           {description ? (

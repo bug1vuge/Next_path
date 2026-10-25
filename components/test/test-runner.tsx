@@ -62,7 +62,7 @@ export function TestRunner({questions, directionSlugs}: {questions: TestQuestion
   if (!started) {
     return (
       <div className="rounded-3xl border border-border bg-surface p-6 sm:p-10">
-        <h2 className="text-2xl font-extrabold">{t("title")}</h2>
+        <h2 className="text-2xl font-extrabold max-[359px]:text-xl">{t("title")}</h2>
         <p className="mt-3 max-w-xl text-base leading-7 text-muted">{t("intro", {count: questions.length})}</p>
         <div className="mt-7 flex flex-wrap gap-3">
           <button
